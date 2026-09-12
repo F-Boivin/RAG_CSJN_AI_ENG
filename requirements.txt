@@ -1,0 +1,48 @@
+# Versiones congeladas: son las que corrieron la suite y la ingesta.
+
+# El orquestador y sus agentes
+langgraph==1.2.9
+langchain-core==1.6.0
+langchain-openai==1.5.2
+langchain-text-splitters==1.1.2
+# El proveedor alternativo del factory (LLM_PROVIDER=anthropic).
+langchain-anthropic==1.7.0
+
+# La base vectorial del corpus y la recuperacion hibrida
+langchain-chroma==1.1.0
+chromadb==1.5.9
+tiktoken==0.13.0
+# EnsembleRetriever: en la v1 vive en langchain-classic, que reemplaza a langchain.retrievers.
+# Fusiona por rango reciproco, asi que la escala de los puntajes de cada lado no lo alcanza.
+langchain-classic==1.0.8
+# El lado lexico es FTS5, que viene con la biblioteca estandar de Python. La alternativa era
+# rank-bm25, que reconstruye su indice en memoria en cada arranque leyendo el corpus entero:
+# medido, 200 MB de RAM sobre 13.000 fragmentos.
+
+# La ingesta: los PDF de la Secretaria de Jurisprudencia.
+# PyMuPDF es AGPL. El repositorio y el servicio son publicos, asi que la obligacion de
+# publicar el fuente ya esta cumplida; es una decision consciente.
+pymupdf==1.28.0
+# Cliente HTTP de la ingesta.
+httpx==0.28.1
+# Comprime el indice para publicarlo como artefacto.
+zstandard==0.25.0
+
+# El servicio
+fastapi==0.141.1
+uvicorn==0.51.0
+# SSE con latido y deteccion de desconexion, que es lo que el proxy de borde exige.
+sse-starlette==3.4.8
+
+# Observabilidad
+langsmith==0.10.9
+
+openai==3.3.1
+pydantic==2.13.4
+# La configuracion por entorno, validada con Pydantic.
+pydantic-settings==2.14.2
+python-dotenv==1.2.2
+
+# Tests. Corren sin red, sin claves y sin servicios; la imagen no copia tests/.
+pytest==9.1.1
+pytest-asyncio==1.4.0

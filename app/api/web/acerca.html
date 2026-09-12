@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo funciona — Buscador de jurisprudencia de la CSJN</title>
+<link rel="stylesheet" href="/estatico/estilo.css">
+</head>
+<body>
+<header>
+  <h1>Cómo funciona</h1>
+  <p class="bajada">Un buscador de jurisprudencia de la Corte Suprema que responde en lenguaje
+  natural y cita fallos reales, con su link oficial.</p>
+</header>
+<main>
+  <h2>El corpus</h2>
+  <p>Todo lo que el buscador responde sale de tres fuentes públicas de la Secretaría de
+  Jurisprudencia de la Corte Suprema: el cuadernillo de doctrina sobre sentencias arbitrarias,
+  las notas de jurisprudencia y los suplementos temáticos.</p>
+  <p id="resumen-corpus"></p>
+  <table id="tabla-corpus"><thead><tr>
+    <th>Documento</th><th>Tipo</th><th>Páginas</th><th>Fragmentos</th>
+  </tr></thead><tbody></tbody></table>
+
+  <h2>Cómo se arma una respuesta</h2>
+  <p>Cuatro agentes trabajan en turnos, y un supervisor decide quién sigue.</p>
+  <ol>
+    <li><strong>Investigador.</strong> Busca en el corpus combinando dos formas de búsqueda:
+    por significado, que encuentra la pregunta parafraseada, y por palabra exacta, que
+    encuentra el número de fallo escrito literal. Arma una síntesis con sus citas.</li>
+    <li><strong>Verificador.</strong> Comprueba cada cita contra el padrón del corpus. Es
+    código, no un modelo: un fallo está en el padrón o no está, y eso se computa. Poner un
+    modelo a juzgarlo mudaría el problema al que audita.</li>
+    <li><strong>Redactor.</strong> Escribe la respuesta usando solo las citas aprobadas, y pide
+    el link de cada una a una herramienta acotada a esa consulta.</li>
+    <li><strong>Control final.</strong> El texto se compara contra la lista aprobada. Si invoca
+    una cita que no está, vuelve a escribirse. Hasta tres veces; si a la tercera no se sostiene,
+    el buscador dice que no hay base suficiente en vez de publicar.</li>
+  </ol>
+
+  <h2>Los links</h2>
+  <p><strong>Ninguna URL sale de un modelo.</strong> Los PDF de la Secretaría traen los links
+  oficiales embebidos, anclados al texto de cada cita, y de ahí sale el padrón. Cuando un
+  documento no enlaza una cita, el link se arma por código con la plantilla oficial de la
+  Corte, a partir del tomo y la página que el corpus escribió.</p>
+
+  <h2>Los límites</h2>
+  <p>El buscador responde sobre jurisprudencia de la Corte Suprema y nada más. Una consulta
+  fuera de ese alcance se rechaza antes de correr, para no gastar el presupuesto.</p>
+  <p>Cada visitante tiene cinco consultas cada 24 horas, y el sitio tiene un techo diario. Las
+  claves las paga una persona; el techo es lo que hace que el buscador siga en pie.</p>
+
+  <h2>Lo que no es</h2>
+  <p>Las respuestas son un punto de partida para leer los fallos originales. El sistema
+  comprueba que una cita exista en el corpus; no comprueba que el fallo sostenga la afirmación
+  que lo invoca. Eso lo hace quien lee.</p>
+
+  <h2>Uso</h2>
+  <p id="metricas"></p>
+
+  <h2>El código</h2>
+  <p>Este buscador es software libre bajo la
+  <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL versión 3</a>. Podés leer el
+  código, correrlo en tu máquina y publicar tu propia versión, con la condición de que
+  compartas los cambios bajo la misma licencia. El
+  <a href="https://github.com/F-Boivin/RAG_CSJN_AI_ENG">repositorio</a> está completo: la ingesta,
+  el catálogo de los 128 documentos, los agentes y los tests.</p>
+</main>
+<footer><a href="/">Volver al buscador</a> · <a href="/privacidad">Privacidad</a> · <a href="https://github.com/F-Boivin/RAG_CSJN_AI_ENG">Código fuente</a></footer>
+<script>
+fetch("/corpus").then(r => r.json()).then(d => {
+  const docs = d.documentos || [];
+  const paginas = docs.reduce((a, x) => a + (x.paginas || 0), 0);
+  const frags = docs.reduce((a, x) => a + (x.fragmentos || 0), 0);
+  document.getElementById("resumen-corpus").textContent =
+    `${docs.length} documentos · ${paginas.toLocaleString("es-AR")} páginas · ` +
+    `${frags.toLocaleString("es-AR")} fragmentos indexados.`;
+  // Con nodos y no con una plantilla: el título y la URL de cada documento salen del JSON
+  // que publica la Secretaría, o sea de afuera de este proyecto.
+  const celda = (contenido) => {
+    const td = document.createElement("td");
+    if (contenido instanceof Node) td.appendChild(contenido);
+    else td.textContent = contenido;
+    return td;
+  };
+  const cuerpo = document.querySelector("#tabla-corpus tbody");
+  for (const doc of docs) {
+    const fila = document.createElement("tr");
+    let titulo = doc.titulo;
+    if (doc.url) {
+      const a = document.createElement("a");
+      a.href = doc.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = doc.titulo;
+      titulo = a;
+    }
+    fila.append(celda(titulo), celda(doc.tipo),
+                celda(doc.paginas || "—"), celda(String(doc.fragmentos)));
+    cuerpo.appendChild(fila);
+  }
+}).catch(() => {});
+
+fetch("/metricas").then(r => r.json()).then(m => {
+  document.getElementById("metricas").textContent =
+    `${m.consultas} consultas · ${m.publicadas} respondidas con citas · ` +
+    `${m.sin_base} sin base suficiente · ${m.fuera_de_alcance} fuera de alcance · ` +
+    `${Math.round(m.latencia_ms / 1000)} s de mediana.`;
+}).catch(() => {});
+</script>
+</body>
+</html>

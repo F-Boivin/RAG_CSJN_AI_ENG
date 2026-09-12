@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacidad — Buscador de jurisprudencia de la CSJN</title>
+<link rel="stylesheet" href="/estatico/estilo.css">
+</head>
+<body>
+<header><h1>Privacidad</h1></header>
+<main>
+  <h2>Qué se guarda</h2>
+  <p>De cada consulta se guarda el texto que escribiste, la respuesta que produjo el sistema,
+  las citas que usó, cuánto tardó y cuánto costó. Es lo que permite mirar qué se pregunta y
+  mejorar el buscador.</p>
+
+  <h2>Qué no se guarda</h2>
+  <p>Tu dirección IP, tu navegador, de dónde viniste y tu ubicación. Nada de eso llega al
+  registro. Para repartir el cupo de consultas se guarda un hash de tu IP y de una cookie
+  propia, durante 48 horas; el hash lleva una sal del servidor, así que del registro no se
+  puede volver a la IP.</p>
+  <p>El registro de consultas <strong>no lleva ningún identificador de persona</strong>. Dos
+  consultas tuyas quedan guardadas sin nada que las vincule entre sí, y es lo que hace seguro
+  publicar los números agregados de uso.</p>
+
+  <h2>Datos personales en el texto</h2>
+  <p>Antes de guardar la consulta, el sistema reemplaza por <code>[dato removido]</code> lo que
+  reconoce como DNI, CUIT o CUIL, dirección de correo y teléfono. El mismo filtro corre sobre
+  la respuesta, sobre el motivo cuando una consulta se rechaza, y sobre el detalle técnico
+  cuando algo falla. Un nombre propio escrito en prosa no se distingue de la carátula de un
+  fallo, así que ese filtro no lo alcanza: por eso el aviso sobre el cuadro de búsqueda pide no
+  escribir datos personales.</p>
+  <p><strong>Ese filtro protege lo que queda guardado acá.</strong> Para producir la respuesta,
+  el texto que escribiste viaja tal como lo escribiste a los servicios que se nombran abajo. Si
+  escribiste un DNI, ese DNI sale de este sitio antes de que el filtro actúe.</p>
+
+  <h2>A dónde va el texto</h2>
+  <p>Responder una consulta necesita modelos de lenguaje, y este sitio no los corre por su
+  cuenta. El texto que escribís se envía a <strong>OpenAI</strong>, que lo procesa dos veces:
+  una para decidir si la consulta es sobre jurisprudencia de la Corte, y otra para buscar en el
+  corpus y redactar la respuesta. Lo que OpenAI hace con esos datos lo rige su propia política,
+  no esta.</p>
+  <p>Cuando el registro de trazas está encendido, el mismo texto queda también en
+  <strong>LangSmith</strong>, que es la herramienta con la que se revisa por qué el sistema
+  respondió lo que respondió.</p>
+  <p>Fuera de esos dos, el texto no se comparte con nadie. El corpus son PDF públicos de la
+  Secretaría de Jurisprudencia, ya descargados: consultarlo no implica ninguna llamada al sitio
+  de la Corte, así que la Corte no recibe tus consultas.</p>
+
+  <h2>Cuánto tiempo</h2>
+  <p>El texto de las consultas, doce meses. Los hashes de cupo, 48 horas. Los números
+  agregados —cuántas consultas hubo, qué proporción se respondió, cuánto tardaron— no vencen.</p>
+
+  <h2>Cookies</h2>
+  <p>Una sola, técnica, para repartir el cupo de consultas entre visitantes. Es propia de este
+  sitio: no hay analítica ni cookies de terceros.</p>
+
+  <h2>Alcance</h2>
+  <p>Este es un proyecto personal que consulta documentos públicos de la Secretaría de
+  Jurisprudencia de la Corte Suprema. Las respuestas son un punto de partida para buscar los
+  fallos originales, y no asesoramiento jurídico.</p>
+</main>
+<footer><a href="/">Volver al buscador</a> · <a href="/acerca-de">Cómo funciona</a> · <a href="https://github.com/F-Boivin/RAG_CSJN_AI_ENG">Código fuente</a></footer>
+</body>
+</html>

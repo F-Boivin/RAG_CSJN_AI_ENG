@@ -1,0 +1,128 @@
+"""De los `updates` del grafo a los eventos que ve una persona.
+
+`traducir` es una función pura: recibe el nombre del nodo y lo que ese nodo devolvió, y
+devuelve un evento o nada. Al no tocar el grafo ni la red, se prueba sin montar nada.
+
+Lee **los artefactos** (`Investigacion`, `Verificacion`, `Redaccion`) y no los `messages`. Esos
+strings —"[verificador] 4 de 6 citas existen"— están escritos para un log de operador; el
+público necesita otra cosa, y traducirlos sería reparsear lo que el artefacto ya dice bien.
+
+El orden importa. `stream_mode="updates"` emite DESPUÉS de que un nodo corre, así que
+"buscando doctrina" llegaría cuando la búsqueda ya terminó. El evento de inicio de cada
+especialista sale del update del **supervisor**, que llega antes y trae `siguiente`; el de fin
+sale del update del especialista.
+"""
+
+from dataclasses import dataclass, field
+
+import app.nucleo.constantes as cfg
+import app.nucleo.mensajes as msj
+from app.grafo.estado import INVESTIGADOR, REDACTOR, SUPERVISOR, VERIFICADOR
+
+
+@dataclass
+class Evento:
+    """Un evento del stream: su nombre y su cuerpo JSON."""
+
+    nombre: str
+    datos: dict = field(default_factory=dict)
+
+
+ANUNCIOS = {
+    INVESTIGADOR: msj.FASE_INVESTIGANDO,
+    VERIFICADOR: msj.FASE_VERIFICANDO,
+    REDACTOR: msj.FASE_REDACTANDO,
+}
+
+
+def traducir(nodo: str, actualizacion: dict) -> Evento | None:
+    """El evento que corresponde a lo que ese nodo acaba de devolver, o None."""
+    if nodo == SUPERVISOR:
+        return _del_supervisor(actualizacion)
+    if nodo == INVESTIGADOR:
+        return _del_investigador(actualizacion)
+    if nodo == VERIFICADOR:
+        return _del_verificador(actualizacion)
+    return None
+
+
+def _del_supervisor(actualizacion: dict) -> Evento | None:
+    """El anuncio de lo que viene, más el aviso de corrección cuando corresponde.
+
+    `intentos` cuenta las correcciones, y la primera pasada no es una: el supervisor ya
+    incrementó el contador al delegar, así que ese número es la corrección en curso. Sumarle
+    uno mostraba «Intento 4 de 3» en la última.
+    """
+    siguiente = actualizacion.get("siguiente")
+    if siguiente not in ANUNCIOS:
+        return None
+    intentos = actualizacion.get("intentos", 0)
+    if intentos:
+        return Evento("estado", {
+            "fase": "corrigiendo",
+            "detalle": msj.FASE_REINTENTANDO.format(
+                intento=min(intentos, cfg.MAXIMO_INTENTOS), maximo=cfg.MAXIMO_INTENTOS,
+                motivo=ANUNCIOS[siguiente].lower().rstrip(".")),
+        })
+    return Evento("estado", {"fase": siguiente, "detalle": ANUNCIOS[siguiente]})
+
+
+def _del_investigador(actualizacion: dict) -> Evento | None:
+    investigaciones = actualizacion.get("investigaciones") or ()
+    if not investigaciones:
+        return None
+    investigacion = investigaciones[-1]
+    return Evento("estado", {
+        "fase": "investigado",
+        "detalle": msj.FASE_INVESTIGADO.format(
+            citas=len(investigacion.citas), subsecciones=len(investigacion.subsecciones)),
+    })
+
+
+def _del_verificador(actualizacion: dict) -> Evento | None:
+    """El veredicto, con su motivo cuando rechaza.
+
+    El conteo de citas por sí solo miente: una verificación con todas las citas ciertas puede
+    rechazar igual —por una subsección mal atribuida, por ejemplo—, y quien mira la pantalla
+    vería "5 de 5 citas existen" seguido de un reintento que no se explica.
+    """
+    verificaciones = actualizacion.get("verificaciones") or ()
+    if not verificaciones:
+        return None
+    verificacion = verificaciones[-1]
+    propuestas = len(verificacion.verificadas) + len(verificacion.inexistentes)
+    detalle = msj.FASE_VERIFICADO.format(
+        verificadas=len(verificacion.verificadas), propuestas=propuestas)
+    if not verificacion.aprobado and verificacion.observaciones:
+        detalle += f" {msj.FASE_RECHAZADO.format(motivo=verificacion.observaciones[0])}"
+    return Evento("estado", {
+        "fase": "verificado" if verificacion.aprobado else "rechazado",
+        "detalle": detalle,
+    })
+
+
+def fichas_de_citas(estado: dict, padron: dict[str, str]) -> list[dict]:
+    """Las citas que la respuesta usa, con su link y de dónde salieron.
+
+    La URL sale del padrón del índice; la afirmación y la subsección, de la investigación. Es
+    lo que la interfaz muestra debajo del texto.
+    """
+    from app.rag import citas as c
+
+    redacciones = estado.get("redacciones") or ()
+    investigaciones = estado.get("investigaciones") or ()
+    if not redacciones:
+        return []
+    por_cita = {c.normalizar_cita(cita.fallo): cita
+                for inv in investigaciones for cita in inv.citas}
+    fichas = []
+    for usada in redacciones[-1].citas_usadas:
+        clave = c.normalizar_cita(usada)
+        origen = por_cita.get(clave)
+        fichas.append({
+            "fallo": f"Fallos: {clave}" if clave else usada,
+            "url": padron.get(clave, ""),
+            "subseccion": origen.subseccion if origen else "",
+            "afirmacion": origen.afirmacion if origen else "",
+        })
+    return sorted(fichas, key=lambda f: c.clave_fallo(f["fallo"]))

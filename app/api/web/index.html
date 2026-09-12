@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buscador de jurisprudencia de la CSJN</title>
+<link rel="stylesheet" href="/estatico/estilo.css">
+</head>
+<body>
+<header>
+  <h1>Jurisprudencia de la Corte Suprema</h1>
+  <p class="bajada">
+    Preguntá en lenguaje natural. La respuesta se apoya en fallos verificados contra el corpus
+    de la Secretaría de Jurisprudencia, con su link oficial.
+  </p>
+</header>
+
+<main>
+  <form id="busqueda" autocomplete="off">
+    <label class="oculto" for="consulta">Tu consulta</label>
+    <textarea id="consulta" name="consulta" rows="3" maxlength="500"
+      placeholder="¿Qué dijo la Corte sobre el exceso ritual manifiesto?"></textarea>
+    <div class="fila">
+      <button id="preguntar" type="submit">Buscar</button>
+      <span id="cupo" class="cupo"></span>
+    </div>
+    <p class="aviso">
+      Las consultas se registran de forma anónima para mejorar el buscador.
+      No escribas datos personales. <a href="/privacidad">Cómo se tratan</a>.
+    </p>
+  </form>
+
+  <section id="banner" class="banner" hidden></section>
+
+  <section id="progreso" class="progreso" hidden>
+    <ol id="pasos"></ol>
+  </section>
+
+  <section id="respuesta" class="respuesta" hidden>
+    <div id="texto"></div>
+    <div id="citas" class="citas"></div>
+    <p id="cierre" class="cierre"></p>
+  </section>
+
+  <section id="ejemplos" class="ejemplos">
+    <h2>Para empezar</h2>
+    <ul>
+      <li><button class="ejemplo" type="button">¿Qué es el exceso ritual manifiesto y cuándo lo aplica la Corte?</button></li>
+      <li><button class="ejemplo" type="button">¿Qué criterios usa la Corte para el interés superior del niño?</button></li>
+      <li><button class="ejemplo" type="button">¿Cuándo procede el recurso extraordinario por sentencia arbitraria?</button></li>
+      <li><button class="ejemplo" type="button">¿Qué dijo la Corte sobre el derecho a la salud y las prestaciones por discapacidad?</button></li>
+    </ul>
+  </section>
+</main>
+
+<footer>
+  <a href="/acerca-de">Qué es esto y cómo funciona</a> ·
+  <a href="/privacidad">Privacidad</a> ·
+  <a href="https://github.com/F-Boivin/RAG_CSJN_AI_ENG">Código fuente</a>
+</footer>
+
+<script src="/estatico/app.js"></script>
+</body>
+</html>

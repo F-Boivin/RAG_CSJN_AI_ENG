@@ -1,0 +1,398 @@
+"""Esquema del estado compartido del orquestador.
+
+Cada especialista agrega su artefacto a una tupla, así que las versiones sucesivas quedan
+a la vista. Cuando el verificador rechaza y el investigador vuelve a trabajar, el estado
+conserva las dos investigaciones, y eso es lo que hace auditable el ciclo de refinamiento.
+"""
+
+import hashlib
+import json
+from typing import Annotated, Literal, NamedTuple, Optional, Tuple
+
+from langgraph.graph import MessagesState
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+import app.nucleo.constantes as cfg
+
+# Los cuatro destinos que puede elegir el supervisor. Se declara una sola vez: el prompt,
+# el tipo de la decisión y el mapeo de las aristas condicionales salen todos de acá.
+INVESTIGADOR = "investigador"
+VERIFICADOR = "verificador"
+REDACTOR = "redactor"
+FINALIZAR = "FINALIZAR"
+DESTINOS = (INVESTIGADOR, VERIFICADOR, REDACTOR, FINALIZAR)
+
+# El tipo y la tupla se declaran juntos y se controla que no se separen: el Literal no
+# puede construirse en runtime desde la tupla, asi que la unica garantia posible es que
+# el desajuste falle al importar el modulo y no tres nodos mas adelante.
+Destino = Literal["investigador", "verificador", "redactor", "FINALIZAR"]
+assert set(Destino.__args__) == set(DESTINOS), "DESTINOS y Destino se desincronizaron"
+
+# El router. Va aparte de DESTINOS porque nadie lo elige como destino: es el nodo al que
+# vuelven todos, y el unico que decide.
+SUPERVISOR = "supervisor"
+
+# Los tres destinos que son nodos del grafo; FINALIZAR se traduce a END. Se
+# controla contra DESTINOS por la misma razon que el Literal: el desajuste tiene que doler
+# al importar y no cuando el ruteo no encuentre una clave.
+NODOS = (INVESTIGADOR, VERIFICADOR, REDACTOR)
+assert set(NODOS) == set(DESTINOS) - {FINALIZAR}, "NODOS y DESTINOS se desincronizaron"
+
+
+class Cita(BaseModel):
+    """Una afirmación del investigador respaldada por un fallo concreto.
+
+    Es el objeto que el verificador contrasta contra los metadatos del corpus. Separar la
+    cita de la síntesis es lo que permite comprobarlas una por una, en vez de leer un párrafo
+    y confiar.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    fallo: str = Field(min_length=3, max_length=120, description='Ej: "Fallos: 311:2437".')
+    subseccion: str = Field(min_length=3, max_length=200, description="Subsección del cuadernillo de donde sale.")
+    afirmacion: str = Field(min_length=10, max_length=400, description="Qué se sostiene con ese fallo.")
+
+
+class Investigacion(BaseModel):
+    """Lo que el agente de investigación deja en el estado."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    sintesis: str = Field(min_length=20, description="Respuesta a la consulta, con la doctrina encontrada.")
+    citas: Tuple[Cita, ...] = Field(default_factory=tuple, description="Fallos invocados, uno por afirmación.")
+    subsecciones: Tuple[str, ...] = Field(default_factory=tuple, description="Subsecciones consultadas.")
+
+    @field_validator("sintesis")
+    @classmethod
+    def sin_relleno(cls, valor: str) -> str:
+        """Una síntesis en blanco pasa el largo mínimo si viene con espacios."""
+        if not valor.strip():
+            raise ValueError("la sintesis esta vacia")
+        return valor
+
+
+class Verificacion(BaseModel):
+    """El veredicto del verificador sobre las citas de una investigación.
+
+    `aprobado` sale de comparar cada cita contra los metadatos del corpus. Un fallo que no
+    está en los metadatos no existe para el sistema, por convincente que suene.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    verificadas: Tuple[str, ...] = Field(default_factory=tuple, description="Fallos que existen en el corpus.")
+    inexistentes: Tuple[str, ...] = Field(default_factory=tuple, description="Fallos que el investigador inventó o citó mal.")
+    aprobado: bool
+    observaciones: Tuple[str, ...] = Field(default_factory=tuple)
+
+    def model_post_init(self, _context) -> None:
+        if not self.aprobado and not self.observaciones:
+            raise ValueError("un rechazo tiene que venir con al menos una observacion")
+
+
+class Redaccion(BaseModel):
+    """La respuesta final para el usuario, escrita por el redactor.
+
+    Es la fase de síntesis del equipo: el investigador produce material con sus
+    citas, el verificador dictamina cuáles resisten el contraste, y recién entonces alguien
+    escribe la respuesta. Separar la síntesis de la búsqueda es lo que permite que el texto
+    final se apoye **solo en lo verificado**, y no en todo lo que el investigador dijo.
+
+    `limpia` sale de comparar las citas que aparecen en el texto contra las que el
+    verificador aprobó. Un redactor que agrega un fallo nuevo en el último paso rompería la
+    promesa del sistema justo después de haberla comprobado. Y estar fundado es citar, así
+    que la cuenta de las citas que el texto sí usó también entra en el veredicto.
+
+    `llamadas` viaja en el artefacto y no como argumento suelto porque la línea de la traza se
+    arma desde acá: un conteo que llegara por otro lado podría contar otra cosa.
+
+    `sobre_material` es la huella del material del que se escribió, y es lo que permite saber
+    si sigue vigente. Es una huella porque lo que invalida una redacción es que **cambie el
+    material**: volver a verificar la misma investigación da el mismo veredicto y la deja en
+    pie, mientras que una investigación nueva la invalida aunque todavía no se haya
+    verificado.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    # El piso es 1 y no un número mayor a propósito: "el material verificado no permite
+    # responder" es una respuesta legítima y corta, y rechazarla por longitud convertiría una
+    # respuesta honesta en una caída del proceso.
+    texto: str = Field(min_length=1, description="La respuesta final, en prosa.")
+    citas_usadas: Tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Citas verificadas que el texto efectivamente invoca.",
+    )
+    citas_intrusas: Tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Citas que aparecen en el texto y el verificador no aprobó.",
+    )
+    motivos: Tuple[str, ...] = Field(
+        default_factory=tuple, description="Por qué se rechazó, si se rechazó."
+    )
+    limpia: bool = Field(description="True si el texto está fundado solo en citas verificadas.")
+    llamadas: int = Field(
+        ge=0, description="Llamadas a herramienta que el redactor hizo para producirlo."
+    )
+    sobre_material: str = Field(
+        min_length=8, description="Huella del material del que se redactó."
+    )
+
+    def model_post_init(self, _context) -> None:
+        if self.limpia and (self.citas_intrusas or self.motivos):
+            raise ValueError("una redaccion limpia no puede tener intrusas ni motivos de rechazo")
+        if not self.limpia and not self.motivos:
+            raise ValueError("un rechazo tiene que venir con al menos un motivo")
+
+
+def huella_material(investigacion: "Investigacion", verificacion: "Verificacion") -> str:
+    """Identifica el material del que se redacta: la síntesis y las citas aprobadas.
+
+    Si los dos son los mismos, la redacción escrita a partir de ellos sigue valiendo. Si
+    cambió cualquiera de los dos, no.
+    """
+    crudo = json.dumps(
+        [investigacion.sintesis, sorted(verificacion.verificadas)], ensure_ascii=False
+    )
+    return hashlib.sha256(crudo.encode("utf-8")).hexdigest()[:16]
+
+
+def acumular(actual, nuevo):
+    """Reducer que acumula: cada aporte nuevo se agrega al final de los anteriores.
+
+    Es lo que permite mostrar en la traza que hubo un rechazo y qué cambió después. Con el
+    default de LangGraph, la segunda investigación borraría a la primera y el ciclo de
+    refinamiento sería invisible: se vería el resultado, y no el recorrido.
+
+    Todo se normaliza a tupla antes de concatenar, así una lista que llegue de una capa
+    serializada entra igual que una tupla.
+    """
+    if nuevo is None:
+        return tuple(actual or ())
+    anteriores = tuple(actual or ())
+    agregados = tuple(nuevo) if isinstance(nuevo, (tuple, list)) else (nuevo,)
+    return anteriores + agregados
+
+
+class EstadoOrquestador(MessagesState):
+    """Estado global del grafo.
+
+    Hereda de `MessagesState`, así que trae `messages` con el reducer `add_messages` ya
+    puesto. Los campos propios:
+
+    - `consulta`: la pregunta del usuario. Entrada, nadie la reescribe.
+    - `siguiente`: la decisión del supervisor. Va SIN reducer a propósito: se pisa en cada
+      vuelta, que es exactamente lo que se quiere de un campo de ruteo.
+    - `investigaciones` / `verificaciones` / `redacciones`: acumulan. Una entrada por
+      intento. La respuesta vigente es `redacciones[-1].texto`; acumula por la misma razón
+      que las investigaciones — con un campo plano, la segunda redacción borraría a la
+      primera y el refinamiento sería invisible.
+    - `intentos`: cuántas veces un especialista tuvo que rehacer su trabajo tras un
+      rechazo, sumando los dos que pueden recibirlo (el investigador cuando el verificador
+      le rechaza las citas, el redactor cuando invoca una cita sin verificar). **Se
+      incrementa en un solo lugar: el nodo supervisor, y solo cuando esa vuelta manda a
+      rehacer un artefacto que ya fue juzgado.** Sin esa precisión la guarda que lo compara
+      no se puede leer.
+    - `vueltas`: cuántas veces se ejecutó el supervisor. **Se incrementa en el nodo
+      supervisor, en cada ejecución, sin condición.** Es el freno que cubre TODAS las
+      ramas: `intentos` solo acota el ciclo de corrección, y un supervisor que delegara
+      en círculos sin que nadie rechace nada no lo tocaría nunca.
+    - `completado`: el veredicto explícito que lee la arista de cierre. Que el nodo escriba
+      su conclusión y la arista solo la lea evita que la condición tenga que re-deducirla.
+    """
+
+    consulta: str
+    siguiente: Destino
+    investigaciones: Annotated[Tuple[Investigacion, ...], acumular]
+    verificaciones: Annotated[Tuple[Verificacion, ...], acumular]
+    redacciones: Annotated[Tuple[Redaccion, ...], acumular]
+    intentos: int
+    vueltas: int
+    completado: bool
+
+
+def ultima_investigacion(estado: EstadoOrquestador) -> Optional[Investigacion]:
+    """La investigación vigente, o None si el investigador todavía no trabajó."""
+    investigaciones = estado.get("investigaciones") or ()
+    return investigaciones[-1] if investigaciones else None
+
+
+def ultima_verificacion(estado: EstadoOrquestador) -> Optional[Verificacion]:
+    """El último veredicto del verificador, o None si todavía no revisó."""
+    verificaciones = estado.get("verificaciones") or ()
+    return verificaciones[-1] if verificaciones else None
+
+
+def ultima_redaccion(estado: EstadoOrquestador) -> Optional[Redaccion]:
+    """La respuesta final vigente, o None si el redactor todavía no escribió."""
+    redacciones = estado.get("redacciones") or ()
+    return redacciones[-1] if redacciones else None
+
+
+class Calidad(NamedTuple):
+    """Qué tan bien le fue al sistema en este trabajo, en las señales que él mismo produce.
+
+    Es telemetría: viaja al registro de consultas y al evento de cierre del stream. `senales`
+    resume los umbrales que el trabajo tocó, y ninguno de ellos decide si se publica — eso lo
+    decide `Situacion.listo`, que mira el texto final.
+    """
+
+    citas_propuestas: int
+    citas_verificadas: int
+    citas_inexistentes: int
+    cobertura: float
+    citas_en_el_texto: int
+    intentos: int
+    motivos: Tuple[str, ...]
+    senales: bool
+
+
+def evaluar_calidad(estado: EstadoOrquestador, holgadas: int,
+                    tope_intentos: int) -> Calidad:
+    """Mide el trabajo terminado y describe con qué holgura llegó.
+
+    Se calcula solo del estado, sin reloj ni azar, así que dos lecturas del mismo estado dan
+    lo mismo.
+
+    **Mide el historial completo, no la última pasada.** Una verificación aprobada no tiene
+    citas inexistentes: leer solo la última daría cobertura perfecta en todos los trabajos.
+    Lo que distingue a un trabajo difícil de uno fácil es cuántas veces hubo que corregirlo,
+    y eso vive en las versiones anteriores que el reducer `acumular` conserva.
+
+    Las tres señales:
+
+    - **El investigador citó fallos que no existen** en algún momento del recorrido. Las
+      corrigió, y el material lo llevó a inventar.
+    - **La respuesta se apoya en pocas citas.** Cumple el mínimo, sin margen.
+    - **Se agotaron los intentos de corrección.** El sistema cerró con lo que tenía.
+
+    Un trabajo puede publicarse con señales encendidas: quedan anotadas en el registro, que
+    es de donde sale saber qué consultas conviene mirar.
+    """
+    verificaciones = estado.get("verificaciones") or ()
+    redaccion = ultima_redaccion(estado)
+
+    verificadas = sum(len(v.verificadas) for v in verificaciones)
+    inexistentes = sum(len(v.inexistentes) for v in verificaciones)
+    # Las tres cuentan lo mismo: los fallos que el verificador juzgó en todo el recorrido.
+    # Leer las propuestas de la última investigación las ponía en otra escala, y el registro
+    # llegaba a decir "2 propuestas, 3 verificadas".
+    propuestas = verificadas + inexistentes
+    cobertura = verificadas / propuestas if propuestas else 0.0
+    en_el_texto = len(redaccion.citas_usadas) if redaccion else 0
+    intentos = estado.get("intentos", 0)
+
+    motivos = []
+    if inexistentes:
+        motivos.append(
+            f"el investigador citó {inexistentes} de {propuestas} fallos que no existen en el "
+            f"corpus (cobertura {cobertura:.0%})"
+        )
+    if en_el_texto < holgadas:
+        motivos.append(
+            f"la respuesta se apoya en {en_el_texto} citas, por debajo de las {holgadas} "
+            f"que dan margen"
+        )
+    if intentos >= tope_intentos:
+        motivos.append(f"se agotaron los {tope_intentos} intentos de corrección")
+
+    return Calidad(
+        citas_propuestas=propuestas,
+        citas_verificadas=verificadas,
+        citas_inexistentes=inexistentes,
+        cobertura=cobertura,
+        citas_en_el_texto=en_el_texto,
+        intentos=intentos,
+        motivos=tuple(motivos),
+        senales=bool(motivos),
+    )
+
+
+class Situacion(NamedTuple):
+    """La lectura del estado que usan el resumen del prompt y los frenos.
+
+    Se calcula una sola vez y la consumen los dos, así que el texto que ve el supervisor y
+    la condición que lo frena dicen siempre lo mismo. Cuando cada uno deduce la situación por
+    su cuenta, tarde o temprano dejan de coincidir y el sistema cuenta una cosa mientras hace
+    otra.
+    """
+
+    investigacion: Optional[Investigacion]
+    verificacion: Optional[Verificacion]
+    redaccion: Optional[Redaccion]
+    n_investigaciones: int
+    n_verificaciones: int
+    vigente_verificada: bool
+    redaccion_vigente: bool
+    rechazo_pendiente: bool
+    material_suficiente: bool
+    reescritura_pendiente: bool
+    listo: bool
+
+
+def leer_situacion(state: EstadoOrquestador,
+                   minimas: int = cfg.CITAS_MINIMAS) -> Situacion:
+    """Traduce el estado crudo a las preguntas que el supervisor necesita responder.
+
+    `minimas` es el piso de citas verificadas para poder escribir una respuesta. Viene por
+    parámetro con el valor configurado como default: quien mide con otro umbral lo pasa, y
+    nadie tiene que repetir la constante.
+    """
+    investigaciones = state.get("investigaciones") or ()
+    verificaciones = state.get("verificaciones") or ()
+    investigacion = ultima_investigacion(state)
+    verificacion = ultima_verificacion(state)
+    redaccion = ultima_redaccion(state)
+
+    # El dato que decide el próximo paso es si la investigación VIGENTE ya pasó por el
+    # verificador, y no si hubo un rechazo. Sin esta comparación el supervisor no distingue
+    # "rechazada y sin corregir" de "rechazada y ya corregida", y vuelve a mandar a
+    # investigar sobre una corrección que nunca se revisó.
+    vigente_verificada = len(verificaciones) >= len(investigaciones)
+
+    # Y una redacción sigue valiendo mientras el material del que se escribió siga igual. Se
+    # compara la huella del material: volver a verificar la misma investigación da el mismo
+    # veredicto y la deja en pie, mientras que una investigación nueva la invalida aunque
+    # todavía no se haya verificado — caso en que un contador de vueltas ni se habría movido.
+    redaccion_vigente = (
+        redaccion is not None
+        and investigacion is not None
+        and verificacion is not None
+        and vigente_verificada
+        and redaccion.sobre_material == huella_material(investigacion, verificacion)
+    )
+
+    # Escribir la respuesta necesita **citas verificadas suficientes**, y eso es más débil que
+    # una investigación aprobada. El verificador rechaza la tanda entera cuando una sola cita
+    # es inventada, aunque las otras existan; el redactor, en cambio, solo recibe
+    # `verificacion.verificadas`, y el control del texto final lo compara contra esa misma
+    # lista. Publicar sobre el subconjunto verificado conserva todas las garantías: lo que se
+    # pierde con la regla estricta es una respuesta buena, no una salvaguarda.
+    #
+    # El rechazo sigue mandando a corregir mientras queden intentos. Lo que cambia es el
+    # desenlace cuando se agotan: el corte pasa a ser «no hay nada verificable» en vez de
+    # «alguna vez se inventó algo».
+    suficiente = (
+        verificacion is not None
+        and vigente_verificada
+        and len(verificacion.verificadas) >= minimas
+    )
+    return Situacion(
+        investigacion=investigacion,
+        verificacion=verificacion,
+        redaccion=redaccion,
+        n_investigaciones=len(investigaciones),
+        n_verificaciones=len(verificaciones),
+        vigente_verificada=vigente_verificada,
+        redaccion_vigente=redaccion_vigente,
+        rechazo_pendiente=(
+            verificacion is not None and not verificacion.aprobado and vigente_verificada
+        ),
+        material_suficiente=suficiente,
+        reescritura_pendiente=suficiente and redaccion_vigente and not redaccion.limpia,
+        # La barra de publicación: hay citas verificadas suficientes, la redacción es vigente
+        # sobre ese material, y el texto se apoya solo en ellas. El servicio la lee del estado
+        # final para decidir entre publicar y contestar que no hay base.
+        listo=suficiente and redaccion_vigente and redaccion.limpia,
+    )

@@ -1,0 +1,26 @@
+# Los datos de trabajo: se construyen, no se versionan. En desarrollo viven fuera de
+# OneDrive (C:\rag_csjn\), porque el indice se reescribe entero y sincronizar cientos de
+# MB binarios en cada reconstruccion es una tormenta.
+datos/
+cache/
+
+# Entorno y claves. El .env real vive fuera del arbol del repositorio; esto es la red por si
+# alguna vez aparece uno adentro. Va por prefijo porque `.env.local` y `.env.produccion` son
+# tan secretos como `.env`, y el repositorio es publico: lo que entra una vez queda en el
+# historial aunque despues se borre.
+.env*
+!.env.example
+.venv/
+
+# El estado del servicio: registro de consultas, cupos y gasto. Nunca se versiona.
+*.sqlite3
+*.sqlite3-*
+
+# El artefacto del indice. Vive fuera del arbol y se publica como asset de un Release; esto
+# es por si alguien construye con DIRECTORIO_INDICE apuntando adentro.
+*.tar.zst
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
