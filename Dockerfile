@@ -23,13 +23,22 @@ COPY app/ app/
 COPY data/ data/
 COPY catalogo.json .
 
-# El volumen se monta aca. El mkdir previo hace que herede el dueño correcto.
+# El volumen se monta aca. El mkdir previo hace que herede el dueño correcto cuando el volumen
+# es de Docker; cuando lo monta una plataforma, el dueño lo decide ella y por eso existe el
+# entrypoint.
 RUN mkdir -p /datos && \
     useradd --create-home --uid 10001 buscador && \
     chown -R buscador:buscador /srv /datos
-USER buscador
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 8000
+
+# El contenedor arranca como root y el entrypoint baja a `buscador` despues de dejar el volumen
+# escribible. Sin eso, la plataforma monta /datos como root:root y el servicio muere antes de
+# abrir el puerto: `unable to open database file`.
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Forma shell porque ${PORT} no se expande en la forma JSON. --workers 1 es parte del diseño:
 # los contadores de cupo y el registro de corridas viven en memoria del proceso.

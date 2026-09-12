@@ -539,6 +539,15 @@ TOKEN_RESPALDO          INTENTOS_POR_IP=60
 El modo serverless queda apagado: el arranque carga el índice, y un cold start rompería la
 primera consulta.
 
+**El contenedor arranca como root y baja privilegios enseguida.** El volumen persistente lo
+monta la plataforma y su dueño lo decide ella: Railway lo entrega como `root:root` con modo
+755, así que el proceso no-root no puede escribir adentro y el servicio moría con
+`sqlite3.OperationalError: unable to open database file` antes de abrir el puerto. El
+`entrypoint.sh` corrige el dueño del punto de montaje y hace `exec setpriv` a `buscador`: root
+vive lo que tarda un `chown`. **Un volumen nombrado de Docker no reproduce el problema** —hereda
+el dueño del directorio de la imagen—, así que probarlo local pasa y el despliegue falla igual;
+para verlo hay que montar un directorio ajeno, o desplegar.
+
 **Las tres rutas de datos las trae la imagen**, no solo el panel del proveedor: el `Dockerfile`
 fija `DIRECTORIO_INDICE`, `DIRECTORIO_CACHE` y `ARCHIVO_ESTADO` sobre `/datos`. Los defaults
 del código son los de desarrollo y caen en `RAIZ/datos`, que adentro de la imagen es
