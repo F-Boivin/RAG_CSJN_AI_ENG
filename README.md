@@ -25,8 +25,9 @@ modelo a juzgarlo mudaría la alucinación al que audita.
 1. **Que la cita exista**, contra el padrón.
 2. **Que el investigador la haya leído**: que el fallo haya salido de un fragmento que la
    búsqueda le sirvió en esta consulta.
-3. **Que el fragmento diga lo que la afirmación dice que dice**: cada cita viene con el pasaje
-   copiado del texto, y ese pasaje se busca en lo que se leyó.
+3. **Que el pasaje con el que se sostiene esté en lo leído**: cada cita viene con una oración
+   copiada del texto, y un pasaje que no figura en ningún fragmento servido es un pasaje
+   inventado.
 
 Las dos últimas faltaban. El corpus tiene 9.005 citas reales, así que «existe» es una barra
 baja: el buscador llegó a contestar sobre el impuesto al valor agregado con cuatro fallos
@@ -42,6 +43,20 @@ señal a veto, y la cita sin respaldo sale de la lista de verificadas en vez de 
 veredicto: agotadas las tres correcciones el sistema publica sobre lo verificado, y una cita
 que solo bajara `aprobado` volvería igual al redactor en esa última vuelta. Medido: así pasaba
 en 2 de 20 consultas.
+
+**El pasaje se le muestra al lector solo si sale de un fragmento que cita ese mismo fallo.**
+Con la ficha mostrando el pasaje en producción, 4 de 14 citas publicadas traían una oración de
+un documento distinto al que citaba el fallo: 243:190, citado en una nota sobre honorarios,
+salió con un pasaje del suplemento de Decretos de Necesidad y Urgencia. La cita pasaba las tres
+comprobaciones —el pasaje estaba en lo leído— y la ficha lo presentaba como su respaldo.
+
+Se probó vetar con esa vara más estricta, y se midió sobre 20 consultas antes de dejarla: cero
+pasajes ajenos, pero 31 correcciones contra 9, la latencia mediana de 18 a 40 segundos, y tres
+consultas que el corpus responde —marcas y patentes, lesa humanidad, gravamen irreparable—
+terminaron sin base. En los suplementos el fragmento que trata el tema casi nunca cita el fallo:
+el 66% no cita ninguno, así que la vara estricta los dejaba sin nada con qué respaldar. Por eso
+decide lo que se muestra y no lo que se publica: la cita con un pasaje ajeno sale con su
+afirmación y su link oficial, sin el pasaje a la vista, y la telemetría cuenta cuántas son.
 
 **Y esto es lo que le da al buscador la respuesta «no tengo esto».** Sin citas que sobrevivan
 las tres comprobaciones no se llega al mínimo, y el desenlace es sin base suficiente. Una

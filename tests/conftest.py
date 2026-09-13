@@ -15,8 +15,9 @@ from app.grafo.estado import (
     Verificacion,
     huella_material,
 )
-from tests.dobles import (FALLOS, SUBSECCION, citas, estado_inicial, leido,
-                          textos_leidos)
+from app.rag.citas import normalizar_cita
+from tests.dobles import (FALLOS, SUBSECCION, citas, estado_inicial, fragmentos_por_cita,
+                          leido, textos_leidos)
 
 _LOCALES = {"127.0.0.1", "::1", "localhost", "0.0.0.0"}
 _conectar_real = socket.socket.connect
@@ -56,10 +57,13 @@ def investigacion() -> Investigacion:
 
 @pytest.fixture
 def verificacion(investigacion: Investigacion) -> Verificacion:
-    """El veredicto que aprueba las tres citas de esa investigación."""
+    """El veredicto que aprueba las tres citas de esa investigación, con su pasaje propio."""
+    verificadas = tuple(c.fallo for c in investigacion.citas)
     return Verificacion(
-        verificadas=tuple(c.fallo for c in investigacion.citas),
+        verificadas=verificadas,
         inexistentes=(),
+        pasajes_propios=tuple((normalizar_cita(f), c.respaldo)
+                              for f, c in zip(verificadas, investigacion.citas)),
         aprobado=True,
         observaciones=(),
     )
@@ -94,6 +98,7 @@ def estado_terminado(estado_vacio, investigacion, verificacion, redaccion) -> di
         "redacciones": (redaccion,),
         "recuperado": leido(3),
         "textos_leidos": textos_leidos(),
+        "fragmentos_por_cita": fragmentos_por_cita(3),
     }
 
 

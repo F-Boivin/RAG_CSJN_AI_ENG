@@ -35,6 +35,9 @@ TEXTO = (
     "equivocados."
 )
 LEIDOS = {"huella-uno": TEXTO}
+# En qué fragmento apareció cada fallo: todos en el único fragmento leído, salvo donde un test
+# arme otra cosa. El pasaje de una cita solo se busca en los fragmentos de su fallo.
+FRAGMENTOS = {clave: ["huella-uno"] for clave in PADRON}
 # El pasaje que las citas de prueba copian: esta en TEXTO, asi que resiste la comprobacion.
 RESPALDO = "se debe efectuar un analisis de los defectos logicos que justifican"
 
@@ -64,13 +67,13 @@ class TestAprobacion:
     """Lo que el verificador deja pasar."""
 
     async def test_dos_citas_reales_se_aprueban(self):
-        veredicto = await verificar(investigar(cita("Fallos: 311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS)
+        veredicto = await verificar(investigar(cita("Fallos: 311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is True
         assert set(veredicto.verificadas) == {"Fallos: 311:2437", "Fallos: 315:1848"}
         assert veredicto.inexistentes == ()
 
     async def test_una_cita_del_cuerpo_sin_link_tambien_existe(self):
-        veredicto = await verificar(investigar(cita("Fallos: 211:958"), cita("Fallos: 311:2437")), LEIDO, LEIDOS)
+        veredicto = await verificar(investigar(cita("Fallos: 211:958"), cita("Fallos: 311:2437")), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is True
         assert "Fallos: 211:958" in veredicto.verificadas
 
@@ -80,14 +83,14 @@ class TestRechazos:
 
     async def test_una_cita_inventada_se_rechaza_nombrandola(self):
         veredicto = await verificar(investigar(
-            cita("Fallos: 999:9999"), cita("Fallos: 311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS)
+            cita("Fallos: 999:9999"), cita("Fallos: 311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is False
         assert veredicto.inexistentes == ("Fallos: 999:9999",)
         assert any("999:9999" in o and "no figura" in o for o in veredicto.observaciones)
 
     async def test_citas_amontonadas_piden_una_por_afirmacion(self):
         veredicto = await verificar(investigar(
-            cita("Fallos: 311:2437; 315:1848"), cita("Fallos: 330:1228")), LEIDO, LEIDOS)
+            cita("Fallos: 311:2437; 315:1848"), cita("Fallos: 330:1228")), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is False
         assert any("junta varias citas" in o for o in veredicto.observaciones)
 
@@ -95,7 +98,7 @@ class TestRechazos:
         # Cero citas y varias citas son problemas distintos: decirle "separá las citas" a
         # quien no escribió ninguna lo manda a corregir algo que no hizo.
         veredicto = await verificar(investigar(cita("la doctrina de Colalillo"),
-                                               cita("Fallos: 311:2437")), LEIDO, LEIDOS)
+                                               cita("Fallos: 311:2437")), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is False
         assert any("no tiene ningun numero de fallo" in o for o in veredicto.observaciones)
         assert not any("junta varias citas" in o for o in veredicto.observaciones)
@@ -105,12 +108,12 @@ class TestRechazos:
         # costado de la lista tiene que pasar por el mismo control.
         veredicto = await verificar(investigar(
             cita("Fallos: 311:2437"), cita("Fallos: 315:1848"),
-            sintesis="La doctrina se apoya ademas en Fallos: 999:9999, no verificado."), LEIDO, LEIDOS)
+            sintesis="La doctrina se apoya ademas en Fallos: 999:9999, no verificado."), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is False
         assert any("la sintesis menciona el fallo" in o for o in veredicto.observaciones)
 
     async def test_todas_ciertas_pero_pocas_es_un_rechazo_distinto(self):
-        veredicto = await verificar(investigar(cita("Fallos: 311:2437")), LEIDO, LEIDOS)
+        veredicto = await verificar(investigar(cita("Fallos: 311:2437")), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is False
         assert veredicto.verificadas == ("Fallos: 311:2437",)
         assert veredicto.inexistentes == ()
@@ -138,7 +141,7 @@ class TestPertinencia:
         leido = {"311:2437": SUBSECCIONES[1], "315:1848": SUBSECCIONES[1]}
         veredicto = await verificar(investigar(
             cita("Fallos: 311:2437"), cita("Fallos: 315:1848"),
-            cita("Fallos: 330:1228")), leido, LEIDOS)
+            cita("Fallos: 330:1228")), leido, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is False
         assert veredicto.impertinentes == ("Fallos: 330:1228",)
         assert veredicto.inexistentes == (), "existe: el problema es otro"
@@ -147,7 +150,7 @@ class TestPertinencia:
         # Decirle «no existe» sobre un fallo que existe lo manda a corregir otra cosa.
         leido = {"311:2437": SUBSECCIONES[1]}
         veredicto = await verificar(investigar(
-            cita("Fallos: 311:2437"), cita("Fallos: 330:1228")), leido, LEIDOS)
+            cita("Fallos: 311:2437"), cita("Fallos: 330:1228")), leido, LEIDOS, FRAGMENTOS)
         observacion = next(o for o in veredicto.observaciones if "330:1228" in o)
         assert "existe en el corpus" in observacion
         assert "no salio de ningun fragmento" in observacion
@@ -157,7 +160,7 @@ class TestPertinencia:
         leido = {"311:2437": SUBSECCIONES[1], "315:1848": SUBSECCIONES[1]}
         veredicto = await verificar(investigar(
             cita("Fallos: 311:2437"), cita("Fallos: 315:1848"),
-            cita("Fallos: 330:1228"), cita("Fallos: 999:9999")), leido, LEIDOS)
+            cita("Fallos: 330:1228"), cita("Fallos: 999:9999")), leido, LEIDOS, FRAGMENTOS)
         assert veredicto.inexistentes == ("Fallos: 999:9999",)
         assert veredicto.impertinentes == ("Fallos: 330:1228",)
         assert set(veredicto.verificadas) == {"Fallos: 311:2437", "Fallos: 315:1848"}
@@ -168,7 +171,7 @@ class TestPertinencia:
         leido = {"311:2437": SUBSECCIONES[1], "315:1848": SUBSECCIONES[1]}
         veredicto = await verificar(investigar(
             cita("Fallos: 311:2437"), cita("Fallos: 315:1848"),
-            sintesis="La doctrina se apoya ademas en Fallos: 330:1228, que existe."), leido, LEIDOS)
+            sintesis="La doctrina se apoya ademas en Fallos: 330:1228, que existe."), leido, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is False
         assert any("no salio de ningun fragmento" in o and "330:1228" in o
                    for o in veredicto.observaciones)
@@ -184,7 +187,7 @@ class TestPertinencia:
     async def test_la_forma_en_que_se_escribio_la_cita_no_cambia_el_veredicto(self):
         # El registro guarda "tomo:pagina"; el modelo escribe "Fallos: tomo:pagina".
         veredicto = await verificar(investigar(
-            cita("311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS)
+            cita("311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is True
         assert veredicto.impertinentes == ()
 
@@ -210,13 +213,13 @@ class TestCaidaDeLaBase:
         monkeypatch.setattr(herramientas, "verificar_citas",
                             ToolFalsa(excepcion=ConnectionError("chroma caido")))
         with pytest.raises(ErrorDeAgente):
-            await verificar(investigar(cita("Fallos: 311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS)
+            await verificar(investigar(cita("Fallos: 311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS, FRAGMENTOS)
 
     async def test_un_veredicto_incompleto_no_se_completa_con_el_peor_caso(self, monkeypatch):
         monkeypatch.setattr(herramientas, "verificar_citas",
                             ToolFalsa(respuesta="Fallos: 311:2437 | EXISTE |"))
         with pytest.raises(ErrorDeAgente):
-            await verificar(investigar(cita("Fallos: 311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS)
+            await verificar(investigar(cita("Fallos: 311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS, FRAGMENTOS)
 
 
 class TestUnFalloEsUnaCita:
@@ -231,31 +234,31 @@ class TestUnFalloEsUnaCita:
 
     async def test_el_mismo_fallo_repetido_cuenta_una_vez(self):
         repetido = [cita("Fallos: 311:2437") for _ in range(4)]
-        veredicto = await verificar(investigar(*repetido), LEIDO, LEIDOS)
+        veredicto = await verificar(investigar(*repetido), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.verificadas == ("Fallos: 311:2437",)
 
     async def test_repetido_no_alcanza_el_minimo_de_citas(self):
         # Es el punto: `CITAS_MINIMAS` pide fallos distintos, y con duplicados se cumplía solo.
         repetido = [cita("Fallos: 311:2437") for _ in range(cfg.CITAS_MINIMAS + 2)]
-        veredicto = await verificar(investigar(*repetido), LEIDO, LEIDOS)
+        veredicto = await verificar(investigar(*repetido), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is False
         assert any("al menos" in o for o in veredicto.observaciones)
 
     async def test_las_formas_distintas_del_mismo_fallo_son_una(self):
         # "Fallos: 311:2437" y "311:2437" son la misma cita; lo que la identifica es el par.
         veredicto = await verificar(investigar(
-            cita("Fallos: 311:2437"), cita("311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS)
+            cita("Fallos: 311:2437"), cita("311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS, FRAGMENTOS)
         assert len(veredicto.verificadas) == 2
         assert veredicto.aprobado is True
 
     async def test_conserva_la_forma_en_que_se_escribio_la_primera(self):
         veredicto = await verificar(investigar(
-            cita("Fallos: 311:2437"), cita("311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS)
+            cita("Fallos: 311:2437"), cita("311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS, FRAGMENTOS)
         assert "Fallos: 311:2437" in veredicto.verificadas
 
     async def test_un_fallo_inexistente_repetido_se_observa_una_vez(self):
         repetido = [cita("Fallos: 999:9999") for _ in range(3)]
-        veredicto = await verificar(investigar(cita("Fallos: 311:2437"), *repetido), LEIDO, LEIDOS)
+        veredicto = await verificar(investigar(cita("Fallos: 311:2437"), *repetido), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.inexistentes == ("Fallos: 999:9999",)
 
 
@@ -334,7 +337,7 @@ class TestCompuertaDelRespaldo:
                                              "logicos que justifican"),
             con_respaldo("Fallos: 315:1848", "un pasaje que ningun fragmento del corpus dice "
                                              "en ningun lado de ninguna manera")),
-            LEIDO, LEIDOS)
+            LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.sin_respaldo == ("Fallos: 315:1848",)
 
     async def test_con_la_compuerta_abierta_no_bloquea(self, monkeypatch):
@@ -342,7 +345,7 @@ class TestCompuertaDelRespaldo:
         veredicto = await verificar(investigar(
             con_respaldo("Fallos: 311:2437", "un pasaje inventado que no esta en el corpus"),
             con_respaldo("Fallos: 315:1848", "otro pasaje inventado que tampoco esta ahi")),
-            LEIDO, LEIDOS)
+            LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.sin_respaldo == ("Fallos: 311:2437", "Fallos: 315:1848")
         assert veredicto.aprobado is True
 
@@ -351,9 +354,10 @@ class TestCompuertaDelRespaldo:
         veredicto = await verificar(investigar(
             con_respaldo("Fallos: 311:2437", "un pasaje inventado que no esta en el corpus"),
             con_respaldo("Fallos: 315:1848", "otro pasaje inventado que tampoco esta ahi")),
-            LEIDO, LEIDOS)
+            LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is False
-        assert any("copia la oracion del texto" in o for o in veredicto.observaciones)
+        assert any("no viene con un pasaje que lo respalde" in o
+                   for o in veredicto.observaciones)
 
     async def test_la_cita_sin_respaldo_sale_de_las_verificadas(self, monkeypatch):
         """Rechazar la tanda no alcanza: la cita tiene que salir de la lista.
@@ -368,7 +372,7 @@ class TestCompuertaDelRespaldo:
         veredicto = await verificar(investigar(
             con_respaldo("Fallos: 311:2437", RESPALDO),
             con_respaldo("Fallos: 315:1848", "un pasaje que no esta en ningun fragmento")),
-            LEIDO, LEIDOS)
+            LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.verificadas == ("Fallos: 311:2437",)
         assert veredicto.sin_respaldo == ("Fallos: 315:1848",)
 
@@ -379,7 +383,7 @@ class TestCompuertaDelRespaldo:
         veredicto = await verificar(investigar(
             con_respaldo("Fallos: 311:2437", "un pasaje que no esta en ningun fragmento"),
             con_respaldo("Fallos: 315:1848", "otro pasaje que tampoco esta en ninguno")),
-            LEIDO, LEIDOS)
+            LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.verificadas == ()
         assert len(veredicto.verificadas) < cfg.CITAS_MINIMAS
 
@@ -390,7 +394,7 @@ class TestCompuertaDelRespaldo:
         veredicto = await verificar(investigar(
             con_respaldo("Fallos: 311:2437", RESPALDO),
             con_respaldo("Fallos: 315:1848", "un pasaje que no esta en ningun fragmento")),
-            LEIDO, LEIDOS)
+            LEIDO, LEIDOS, FRAGMENTOS)
         assert set(veredicto.verificadas) == {"Fallos: 311:2437", "Fallos: 315:1848"}
         assert veredicto.sin_respaldo == ("Fallos: 315:1848",)
 
@@ -402,7 +406,7 @@ class TestCompuertaDelRespaldo:
             con_respaldo("Fallos: 999:9999", "un pasaje cualquiera bastante largo para pasar"),
             con_respaldo("Fallos: 311:2437", "se debe efectuar un analisis de los defectos "
                                              "logicos que justifican")),
-            LEIDO, LEIDOS)
+            LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.sin_respaldo == ()
         assert veredicto.inexistentes == ("Fallos: 999:9999",)
 
@@ -416,6 +420,105 @@ class TestCompuertaDelRespaldo:
                                      "que justifican"),
             con_respaldo("Fallos: 315:1848", "la cual no tiene por objeto corregir en tercera "
                                              "instancia pronunciamientos equivocados")),
-            LEIDO, LEIDOS)
+            LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.sin_respaldo == ()
         assert veredicto.aprobado is True
+
+
+class TestRespaldoDelMismoFallo:
+    """El pasaje se muestra solo si sale de un fragmento que trae ese fallo.
+
+    Buscarlo en todo lo leído dejaba pasar una cita leída en un documento con una oración
+    leída en otro, y la ficha la mostraba como su respaldo. Medido en producción sobre 14
+    citas publicadas, 4 venían así, las cuatro de documentos distintos: 243:190, citado en una
+    nota sobre honorarios, salió con un pasaje del suplemento de Decretos de Necesidad y
+    Urgencia.
+
+    **Esta vara decide qué ve el lector, y no qué se publica.** Se probó vetar con ella y se
+    midió sobre 20 consultas: 31 correcciones contra 9, la latencia de 18 a 40 segundos, y tres
+    consultas que el corpus responde terminaron sin base.
+    """
+
+    HONORARIOS = ("La regulacion de honorarios devengados en las instancias ordinarias se rige "
+                  "por la ley vigente al tiempo de los trabajos profesionales. (Fallos: 243:190)")
+    DECRETOS = ("El hecho imponible, basado en la presuncion de capacidad economica, por la "
+                "tenencia de activos financieros en un momento determinado.")
+    TEXTOS = {"honorarios": HONORARIOS, "decretos": DECRETOS}
+    PASAJE_AJENO = "hecho imponible, basado en la presuncion de capacidad economica, por la tenencia"
+    PASAJE_PROPIO = "se rige por la ley vigente al tiempo de los trabajos profesionales"
+
+    @pytest.fixture(autouse=True)
+    def padron_con_el_fallo(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(herramientas, "_lexico", lexico_de_prueba(
+            tmp_path / "padron.sqlite3",
+            padron={**PADRON, "243:190": ""}, subsecciones=list(SUBSECCIONES)))
+        monkeypatch.setattr(cfg, "RESPALDO_OBLIGATORIO", True)
+
+    def leido(self):
+        return {"243:190": "Honorarios profesionales", "311:2437": SUBSECCIONES[1]}
+
+    def fragmentos(self):
+        # 243:190 aparece solo en el fragmento de honorarios.
+        return {"243:190": ["honorarios"], "311:2437": ["huella-uno"]}
+
+    async def veredicto_con(self, pasaje, fragmentos=None):
+        return await verificar(investigar(
+            con_respaldo("Fallos: 243:190", pasaje), cita("Fallos: 311:2437")),
+            self.leido(), {**LEIDOS, **self.TEXTOS}, fragmentos or self.fragmentos())
+
+    async def test_un_pasaje_de_otro_documento_no_se_le_muestra_al_lector(self):
+        veredicto = await self.veredicto_con(self.PASAJE_AJENO)
+        assert "243:190" not in dict(veredicto.pasajes_propios)
+
+    async def test_pero_la_cita_se_publica_igual(self):
+        # El pasaje está en lo leído, así que no es inventado: la cita pasa, y lo único que
+        # pierde es el pasaje a la vista.
+        veredicto = await self.veredicto_con(self.PASAJE_AJENO)
+        assert "Fallos: 243:190" in veredicto.verificadas
+        assert veredicto.sin_respaldo == ()
+
+    async def test_un_pasaje_del_fragmento_del_fallo_si_se_muestra(self):
+        veredicto = await self.veredicto_con(self.PASAJE_PROPIO)
+        assert dict(veredicto.pasajes_propios)["243:190"] == self.PASAJE_PROPIO
+
+    async def test_con_la_busqueda_abierta_el_pasaje_ajeno_pasaba(self):
+        # Deja constancia de la falla: el pasaje ajeno esta en lo leido, y eso alcanzaba.
+        assert respaldado(self.PASAJE_AJENO, list(self.TEXTOS.values()))
+        assert not respaldado(self.PASAJE_AJENO, [self.HONORARIOS])
+
+    async def test_un_fallo_en_varios_fragmentos_se_muestra_con_cualquiera(self):
+        fragmentos = {"243:190": ["decretos", "honorarios"], "311:2437": ["huella-uno"]}
+        veredicto = await self.veredicto_con(self.PASAJE_AJENO, fragmentos)
+        assert dict(veredicto.pasajes_propios)["243:190"] == self.PASAJE_AJENO
+
+    async def test_sin_registro_de_fragmentos_no_se_muestra_ningun_pasaje(self):
+        # Falla cerrada: sin saber donde aparecio el fallo no hay como afirmar que el pasaje
+        # es suyo, y la ficha va sin el.
+        veredicto = await verificar(investigar(
+            cita("Fallos: 311:2437"), cita("Fallos: 315:1848")), LEIDO, LEIDOS, {})
+        assert veredicto.pasajes_propios == ()
+        assert len(veredicto.verificadas) == 2
+
+    async def test_un_pasaje_que_no_esta_en_nada_leido_si_veta(self):
+        veredicto = await self.veredicto_con("una oracion que no figura en ninguno de los textos leidos")
+        assert veredicto.sin_respaldo == ("Fallos: 243:190",)
+        assert "Fallos: 243:190" not in veredicto.verificadas
+
+    async def test_de_dos_pasajes_del_mismo_fallo_se_guarda_el_que_es_propio(self):
+        # Mazzeo: dos afirmaciones, un pasaje de su fragmento y otro de otro documento. Lo que
+        # queda registrado es el propio, y no un visto bueno al fallo que la ficha usaba para
+        # mostrar cualquiera de los dos.
+        veredicto = await verificar(investigar(
+            con_respaldo("Fallos: 243:190", self.PASAJE_PROPIO),
+            con_respaldo("Fallos: 243:190", self.PASAJE_AJENO),
+            cita("Fallos: 311:2437")),
+            self.leido(), {**LEIDOS, **self.TEXTOS}, self.fragmentos())
+        assert dict(veredicto.pasajes_propios)["243:190"] == self.PASAJE_PROPIO
+
+    async def test_con_los_dos_pasajes_ajenos_no_se_guarda_ninguno(self):
+        veredicto = await verificar(investigar(
+            con_respaldo("Fallos: 243:190", self.PASAJE_AJENO),
+            con_respaldo("Fallos: 243:190", "tenencia de activos financieros en un momento determinado"),
+            cita("Fallos: 311:2437")),
+            self.leido(), {**LEIDOS, **self.TEXTOS}, self.fragmentos())
+        assert "243:190" not in dict(veredicto.pasajes_propios)

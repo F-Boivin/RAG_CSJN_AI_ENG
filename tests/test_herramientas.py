@@ -243,6 +243,28 @@ class TestBuscarDoctrina:
         assert await herramientas.crear_buscar_doctrina(herramientas.Lectura()).ainvoke(
             {"consulta": "arbitrariedad"}) == msj.MENSAJE_SIN_RESULTADOS
 
+    async def test_anota_en_que_fragmento_aparece_cada_fallo(self, monkeypatch):
+        # Es lo que ata el pasaje a su fallo: el respaldo se busca solo en esos fragmentos.
+        self.recuperador(monkeypatch, [
+            self.doc("Uno (Fallos: 311:2437)."),
+            self.doc("Dos (Fallos: 315:1848)."),
+            self.doc("Tres, otra vez (Fallos: 311:2437)."),
+        ])
+        lectura = herramientas.Lectura()
+        await herramientas.crear_buscar_doctrina(lectura).ainvoke({"consulta": "arbitrariedad"})
+        huellas = {texto: huella for huella, texto in lectura.textos.items()}
+        assert lectura.fragmentos_por_cita["311:2437"] == [
+            huellas["Uno (Fallos: 311:2437)."], huellas["Tres, otra vez (Fallos: 311:2437)."]]
+        assert lectura.fragmentos_por_cita["315:1848"] == [huellas["Dos (Fallos: 315:1848)."]]
+
+    async def test_un_fragmento_sin_citas_no_queda_asociado_a_ningun_fallo(self, monkeypatch):
+        self.recuperador(monkeypatch, [
+            self.doc("Un parrafo de doctrina sin citas."), self.doc("Uno (Fallos: 311:2437).")])
+        lectura = herramientas.Lectura()
+        await herramientas.crear_buscar_doctrina(lectura).ainvoke({"consulta": "arbitrariedad"})
+        assert len(lectura.textos) == 2
+        assert sum(len(v) for v in lectura.fragmentos_por_cita.values()) == 1
+
     async def test_dos_corridas_no_comparten_registro(self, monkeypatch):
         # Dos consultas simultáneas en el mismo proceso: mezclarlas haría que el chequeo de
         # pertinencia apruebe citas que este investigador nunca vio.

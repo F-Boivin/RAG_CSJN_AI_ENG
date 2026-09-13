@@ -129,11 +129,17 @@ def citas_del_fragmento(doc, padron: dict[str, str]) -> list[str]:
 class Lectura:
     """Lo que la búsqueda le sirvió al investigador durante una corrida.
 
-    Dos registros, porque el verificador hace dos preguntas distintas. `citas` mapea
+    Tres registros, porque el verificador hace tres preguntas distintas. `citas` mapea
     `"tomo:pagina"` a la subsección del primer fragmento que trajo ese fallo, y responde
     **de dónde salió esta cita**. `textos` guarda el texto de cada fragmento tal como el
-    investigador lo vio —truncado igual—, y responde **qué decía**: es contra esto que se
-    comprueba el pasaje con el que cada afirmación dice sostenerse.
+    investigador lo vio —truncado igual—, y responde **qué decía**. `fragmentos_por_cita`
+    mapea cada fallo a las huellas de los fragmentos donde apareció, y responde **dónde hay
+    que buscar su respaldo**.
+
+    El tercero es el que ata el pasaje a su fallo. Sin él, el respaldo se buscaba en todo lo
+    leído, y una cita leída en un documento pasaba con una oración leída en otro: en
+    producción, 243:190 —citado en una nota sobre honorarios— salió publicado con un pasaje
+    del suplemento de Decretos de Necesidad y Urgencia.
 
     La huella del texto es su clave, así que un fragmento que vuelve en dos búsquedas se
     guarda una vez.
@@ -142,13 +148,19 @@ class Lectura:
     def __init__(self):
         self.citas: dict[str, str] = {}
         self.textos: dict[str, str] = {}
+        self.fragmentos_por_cita: dict[str, list[str]] = {}
 
     def anotar(self, texto: str, subseccion: str, fallos: list[str]) -> None:
-        self.textos.setdefault(huella_de_texto(texto), texto)
+        huella = huella_de_texto(texto)
+        self.textos.setdefault(huella, texto)
         for fallo in fallos:
             # La primera procedencia es la que vale: el mismo fallo puede volver a aparecer
             # más adelante sin que eso cambie de dónde lo leyó el investigador.
             self.citas.setdefault(fallo, subseccion)
+            # Los fragmentos, en cambio, se suman todos: el pasaje puede estar en cualquiera.
+            huellas = self.fragmentos_por_cita.setdefault(fallo, [])
+            if huella not in huellas:
+                huellas.append(huella)
 
 
 def huella_de_texto(texto: str) -> str:

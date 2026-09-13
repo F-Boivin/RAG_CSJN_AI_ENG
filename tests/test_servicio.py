@@ -95,6 +95,51 @@ class TestFichasDeCitas:
         fichas = fichas_de_citas(estado_terminado, {})
         assert fichas[0]["respaldo"] == TEXTO_LEIDO
 
+    def test_un_pasaje_de_otro_fragmento_no_se_muestra(self, estado_terminado):
+        """La cita va, su pasaje no.
+
+        En producción 4 de 14 citas publicadas traían una oración de otro documento, y la ficha
+        la presentaba como su respaldo. Ahora el verificador arma la lista de las que tienen
+        pasaje propio, y la ficha muestra solo esas.
+        """
+        vigente = estado_terminado["verificaciones"][-1]
+        sin_la_primera = vigente.model_copy(update={"pasajes_propios": vigente.pasajes_propios[1:]})
+        estado = {**estado_terminado, "verificaciones": (sin_la_primera,)}
+        fichas = fichas_de_citas(estado, {})
+        assert fichas[0]["fallo"] == "Fallos: 311:2437"
+        assert fichas[0]["respaldo"] == ""
+        assert fichas[0]["afirmacion"], "la cita se publica igual, con su afirmación"
+        assert all(f["respaldo"] == TEXTO_LEIDO for f in fichas[1:])
+
+    def test_sin_la_lista_de_pasajes_propios_no_se_muestra_ninguno(self, estado_terminado):
+        # Falla cerrada: una verificación que no la calculó no le muestra un pasaje a nadie.
+        vigente = estado_terminado["verificaciones"][-1]
+        vacia = vigente.model_copy(update={"pasajes_propios": ()})
+        fichas = fichas_de_citas({**estado_terminado, "verificaciones": (vacia,)}, {})
+        assert all(f["respaldo"] == "" for f in fichas)
+
+    def test_la_ficha_muestra_el_pasaje_validado_con_su_afirmacion(self, estado_terminado):
+        """El pasaje que se ve es el que se validó, y va con la afirmación que lo trajo.
+
+        Mazzeo, 330:3248, sostenía dos afirmaciones con dos pasajes: uno de su propio fragmento
+        y otro sobre la Convención de imprescriptibilidad que no estaba en ninguno de sus 26.
+        El verificador marcaba el fallo como bueno por el primero, y la ficha mostraba el
+        segundo, porque tomaba la última cita con ese fallo.
+        """
+        from app.grafo.estado import Cita, Investigacion
+        vigente_inv = estado_terminado["investigaciones"][-1]
+        propia = vigente_inv.citas[0]
+        ajena = Cita(fallo=propia.fallo, afirmacion="Una afirmacion sostenida en un pasaje ajeno.",
+                     respaldo="Una oracion de otro documento que no cita este fallo en ningun lado.")
+        # La ajena va última: es la que la ficha tomaba antes.
+        investigacion = Investigacion(sintesis=vigente_inv.sintesis,
+                                      citas=vigente_inv.citas + (ajena,),
+                                      subsecciones=vigente_inv.subsecciones)
+        estado = {**estado_terminado, "investigaciones": (investigacion,)}
+        ficha = fichas_de_citas(estado, {})[0]
+        assert ficha["respaldo"] == propia.respaldo
+        assert ficha["afirmacion"] == propia.afirmacion
+
     def test_la_subseccion_sale_del_registro_y_no_del_modelo(self, estado_terminado):
         fichas = fichas_de_citas(estado_terminado, {})
         assert fichas[0]["subseccion"] == SUBSECCION

@@ -33,7 +33,7 @@ def estado_inicial(consulta: str = CONSULTA) -> dict:
     """El estado con el que arranca el grafo."""
     return {"messages": [], "consulta": consulta, "siguiente": "investigador",
             "investigaciones": (), "verificaciones": (), "redacciones": (),
-            "recuperado": {}, "textos_leidos": {},
+            "recuperado": {}, "textos_leidos": {}, "fragmentos_por_cita": {},
             "intentos": 0, "vueltas": 0, "completado": False}
 
 
@@ -59,6 +59,11 @@ def textos_leidos() -> dict:
     return {"huella": TEXTO_LEIDO}
 
 
+def fragmentos_por_cita(cantidad: int) -> dict:
+    """Todas esas citas aparecen en el único fragmento que los dobles dan por servido."""
+    return {normalizar_cita(f): ["huella"] for f in FALLOS[:cantidad]}
+
+
 def investigador_falso(state):
     """Devuelve más citas en cada pasada: es lo que hace observable una corrección."""
     cantidad = 3 + len(state.get("investigaciones") or ())
@@ -66,6 +71,7 @@ def investigador_falso(state):
         sintesis="Sintesis de prueba sobre el exceso ritual manifiesto.",
         citas=citas(cantidad), subsecciones=(SUBSECCION,)),),
         "recuperado": leido(cantidad), "textos_leidos": textos_leidos(),
+        "fragmentos_por_cita": fragmentos_por_cita(cantidad),
         "messages": [("assistant", f"[investigador] doble · {cantidad} citas")]}
 
 
@@ -83,6 +89,7 @@ def investigador_inventor(state):
         sintesis="Sintesis de prueba sobre el exceso ritual manifiesto.",
         citas=citas(2) + (inventada,), subsecciones=(SUBSECCION,)),),
         "recuperado": leido(2), "textos_leidos": textos_leidos(),
+        "fragmentos_por_cita": fragmentos_por_cita(2),
         "messages": [("assistant", "[investigador] doble · con una cita inventada")]}
 
 
@@ -98,6 +105,7 @@ def investigador_terco(state):
         sintesis=f"Sintesis {len(state.get('investigaciones') or ()) + 1} con una cita terca.",
         citas=citas(2) + (inventada,), subsecciones=(SUBSECCION,)),),
         "recuperado": leido(2), "textos_leidos": textos_leidos(),
+        "fragmentos_por_cita": fragmentos_por_cita(2),
         "messages": [("assistant", "[investigador] doble · terco")]}
 
 
@@ -108,6 +116,8 @@ def verificador_falso(state):
     inexistentes = tuple(c.fallo for c in investigacion.citas if c.fallo not in FALLOS)
     return {"verificaciones": (Verificacion(
         verificadas=verificadas, inexistentes=inexistentes,
+        pasajes_propios=tuple((normalizar_cita(c.fallo), c.respaldo)
+                              for c in investigacion.citas if c.fallo in FALLOS),
         aprobado=not inexistentes,
         observaciones=() if not inexistentes else (
             f"estos fallos no existen en el corpus: {', '.join(inexistentes)}",)),),

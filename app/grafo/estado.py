@@ -101,12 +101,21 @@ class Verificacion(BaseModel):
     impertinentes: Tuple[str, ...] = Field(
         default_factory=tuple,
         description="Fallos que existen en el corpus y no salieron de ningún fragmento leído.")
-    # La tercera comprobación, que vive apagada hasta que la medición diga que puede vetar.
-    # Con `RESPALDO_OBLIGATORIO` en falso se calcula igual y viaja al registro: para decidir si
-    # un control puede rechazar hace falta saber cuánto rechazaría.
+    # La tercera comprobación: el pasaje está en algo que el investigador leyó. Veta cuando
+    # `RESPALDO_OBLIGATORIO` está encendido, y con él apagado se calcula igual y viaja al
+    # registro: para decidir si un control puede rechazar hace falta saber cuánto rechazaría.
     sin_respaldo: Tuple[str, ...] = Field(
         default_factory=tuple,
         description="Fallos cuyo pasaje de respaldo no aparece en ningún fragmento leído.")
+    # Lo que se le muestra al lector: por cada fallo verificado, **el pasaje exacto** que salió
+    # de un fragmento que cita ese mismo fallo, como pares `("tomo:pagina", pasaje)`. No
+    # bloquea nada. Guarda el pasaje y no solo el fallo porque un fallo sostiene a veces dos
+    # afirmaciones con dos pasajes, y marcar el fallo como bueno por uno dejaba a la ficha
+    # mostrar el otro: medido, pasó con Mazzeo. Va en positivo para fallar cerrado: una
+    # verificación que no lo calculó no le muestra ningún pasaje a nadie.
+    pasajes_propios: Tuple[Tuple[str, str], ...] = Field(
+        default_factory=tuple,
+        description="Pares (fallo, pasaje) cuyo pasaje sale de un fragmento de ese fallo.")
     aprobado: bool
     observaciones: Tuple[str, ...] = Field(default_factory=tuple)
 
@@ -214,6 +223,26 @@ def fusionar(actual, nuevo):
     return fusionado
 
 
+def unir(actual, nuevo):
+    """Reducer que une listas por clave, sin repetir y en el orden en que llegaron.
+
+    Es el registro de en qué fragmentos aparece cada fallo, y ahí la primera respuesta no
+    alcanza: un mismo fallo está citado en varios lugares del corpus, y el pasaje que lo
+    respalda puede estar en cualquiera de los que el investigador leyó. Quedarse con el primero
+    rechazaría un pasaje cierto por haber llegado en la segunda búsqueda.
+
+    Copia en vez de mutar, por la misma razón que `fusionar`: la lista que devuelve el nodo
+    sigue viva en la herramienta de la corrida.
+    """
+    unido = {clave: list(valores) for clave, valores in (actual or {}).items()}
+    for clave, valores in (nuevo or {}).items():
+        lista = unido.setdefault(clave, [])
+        for valor in valores:
+            if valor not in lista:
+                lista.append(valor)
+    return unido
+
+
 class EstadoOrquestador(MessagesState):
     """Estado global del grafo.
 
@@ -245,9 +274,13 @@ class EstadoOrquestador(MessagesState):
       verificador rechaza el fallo que existe en el corpus y no salió de ningún fragmento
       leído, y la subsección de cada cita se deduce de acá en vez de escribirla el modelo.
     - `textos_leidos`: el texto de cada fragmento que la búsqueda sirvió, `huella -> texto`,
-      exactamente como el investigador lo vio. Es contra esto que se comprueba el pasaje de
-      respaldo de cada cita. Va aparte de `recuperado` porque responde otra pregunta: uno dice
-      qué fallos estuvieron disponibles, y este, qué decía el texto que los traía.
+      exactamente como el investigador lo vio. Va aparte de `recuperado` porque responde otra
+      pregunta: uno dice qué fallos estuvieron disponibles, y este, qué decía el texto.
+    - `fragmentos_por_cita`: en qué fragmentos apareció cada fallo, `"tomo:pagina" -> [huella]`.
+      Decide **si el lector ve el pasaje de una cita**: solo cuando sale de uno de estos
+      fragmentos. Buscarlo en todo lo leído dejaba pasar una cita leída en un documento con una
+      oración leída en otro: medido en producción, 4 de 14 pasajes publicados venían de un
+      documento distinto al que citaba el fallo, y la ficha los mostraba como su respaldo.
     """
 
     consulta: str
@@ -257,6 +290,7 @@ class EstadoOrquestador(MessagesState):
     redacciones: Annotated[Tuple[Redaccion, ...], acumular]
     recuperado: Annotated[dict, fusionar]
     textos_leidos: Annotated[dict, fusionar]
+    fragmentos_por_cita: Annotated[dict, unir]
     intentos: int
     vueltas: int
     completado: bool
@@ -293,6 +327,7 @@ class Calidad(NamedTuple):
     citas_inexistentes: int
     citas_impertinentes: int
     citas_sin_respaldo: int
+    citas_con_pasaje_ajeno: int
     cobertura: float
     citas_en_el_texto: int
     intentos: int
@@ -321,6 +356,10 @@ def evaluar_calidad(estado: EstadoOrquestador, holgadas: int,
     - **Alguna cita quedó sin un pasaje que la respalde.** Mientras `RESPALDO_OBLIGATORIO`
       esté apagado esta señal no bloquea nada, y es justamente para eso que se cuenta: la
       decisión de encenderla necesita saber cuánto rechazaría.
+    - **Alguna cita se publicó con un pasaje de otro fragmento.** El pasaje está en lo leído
+      pero no en un fragmento que cite ese fallo, así que el lector no lo ve. No bloquea: se
+      probó vetar con esa vara y duplicó la latencia. Contarlo es lo que dice cuánto se pierde
+      de pasaje a la vista, y si algún día conviene volver a intentarlo.
     - **La respuesta se apoya en pocas citas.** Cumple el mínimo, sin margen.
     - **Se agotaron los intentos de corrección.** El sistema cerró con lo que tenía.
 
@@ -336,6 +375,8 @@ def evaluar_calidad(estado: EstadoOrquestador, holgadas: int,
     # Solo la vigente: las anteriores fueron rechazadas y sus citas ya no están en la
     # respuesta, así que contarlas mediría un texto que nadie va a leer.
     sin_respaldo = len(verificaciones[-1].sin_respaldo) if verificaciones else 0
+    pasaje_ajeno = (len(verificaciones[-1].verificadas) - len(verificaciones[-1].pasajes_propios)
+                    if verificaciones else 0)
     # Las tres cuentan lo mismo: los fallos que el verificador juzgó en todo el recorrido.
     # Leer las propuestas de la última investigación las ponía en otra escala, y el registro
     # llegaba a decir "2 propuestas, 3 verificadas".
@@ -363,6 +404,10 @@ def evaluar_calidad(estado: EstadoOrquestador, holgadas: int,
         motivos.append(
             f"{sin_respaldo} cita(s) quedaron sin un pasaje del corpus que las respalde"
         )
+    if pasaje_ajeno:
+        motivos.append(
+            f"{pasaje_ajeno} cita(s) con un pasaje de otro fragmento: se publican sin mostrarlo"
+        )
     if intentos >= tope_intentos:
         motivos.append(f"se agotaron los {tope_intentos} intentos de corrección")
 
@@ -372,6 +417,7 @@ def evaluar_calidad(estado: EstadoOrquestador, holgadas: int,
         citas_inexistentes=inexistentes,
         citas_impertinentes=impertinentes,
         citas_sin_respaldo=sin_respaldo,
+        citas_con_pasaje_ajeno=pasaje_ajeno,
         cobertura=cobertura,
         citas_en_el_texto=en_el_texto,
         intentos=intentos,

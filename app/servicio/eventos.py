@@ -114,25 +114,42 @@ def fichas_de_citas(estado: dict, padron: dict[str, str]) -> list[dict]:
 
     Mostrar el respaldo es lo que le permite a quien lee juzgar el salto entre el pasaje y la
     afirmación, que es justo lo que el sistema no comprueba.
+
+    **El pasaje se muestra solo si sale de un fragmento que cita ese mismo fallo.** Si no, la
+    ficha va sin él. Mostrarlo igual era presentar como respaldo de un fallo una oración de
+    otro documento: en producción pasaba con 4 de 14 citas. El pasaje lo elige el verificador
+    y acá solo se lee, así que si falta no se muestra nada.
+
+    **Y la afirmación es la del pasaje que se muestra.** Cuando un fallo sostiene dos
+    afirmaciones, cada una trae su pasaje: la ficha las mantiene juntas, porque mostrar la
+    afirmación de una con el pasaje de la otra es la misma mentira con otro orden.
     """
     from app.rag import citas as c
 
     redacciones = estado.get("redacciones") or ()
     investigaciones = estado.get("investigaciones") or ()
     recuperado = estado.get("recuperado") or {}
+    verificaciones = estado.get("verificaciones") or ()
     if not redacciones:
         return []
-    por_cita = {c.normalizar_cita(cita.fallo): cita
-                for inv in investigaciones for cita in inv.citas}
+    pasajes = dict(verificaciones[-1].pasajes_propios) if verificaciones else {}
+    por_cita: dict[str, list] = {}
+    for inv in investigaciones:
+        for cita in inv.citas:
+            por_cita.setdefault(c.normalizar_cita(cita.fallo), []).append(cita)
     fichas = []
     for usada in redacciones[-1].citas_usadas:
         clave = c.normalizar_cita(usada)
-        origen = por_cita.get(clave)
+        pasaje = pasajes.get(clave, "")
+        candidatas = por_cita.get(clave, [])
+        # La más reciente que trae ese pasaje; sin pasaje propio, la más reciente a secas.
+        origen = (next((ct for ct in reversed(candidatas) if pasaje and ct.respaldo == pasaje), None)
+                  or (candidatas[-1] if candidatas else None))
         fichas.append({
             "fallo": f"Fallos: {clave}" if clave else usada,
             "url": padron.get(clave, ""),
             "subseccion": recuperado.get(clave, ""),
             "afirmacion": origen.afirmacion if origen else "",
-            "respaldo": origen.respaldo if origen else "",
+            "respaldo": pasaje,
         })
     return sorted(fichas, key=lambda f: c.clave_fallo(f["fallo"]))

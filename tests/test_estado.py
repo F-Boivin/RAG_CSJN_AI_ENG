@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from app.grafo.estado import (
     fusionar,
+    unir,
     DESTINOS,
     NODOS,
     Cita,
@@ -108,6 +109,31 @@ class TestReducerFusionar:
         assert antes == {"311:2437": "A"}
 
 
+class TestReducerUnir:
+    """El reducer de en qué fragmentos aparece cada fallo."""
+
+    def test_une_los_fragmentos_de_un_mismo_fallo(self):
+        # El pasaje puede estar en cualquiera: quedarse con el primero rechazaría uno cierto
+        # que llegó en la segunda búsqueda.
+        assert unir({"311:2437": ["a"]}, {"311:2437": ["b"]}) == {"311:2437": ["a", "b"]}
+
+    def test_no_repite_un_fragmento_que_vuelve(self):
+        assert unir({"311:2437": ["a"]}, {"311:2437": ["a", "b"]}) == {"311:2437": ["a", "b"]}
+
+    def test_suma_fallos_nuevos(self):
+        assert unir({"311:2437": ["a"]}, {"315:1848": ["c"]}) == {
+            "311:2437": ["a"], "315:1848": ["c"]}
+
+    def test_nada_nuevo_deja_lo_que_habia(self):
+        assert unir({"311:2437": ["a"]}, None) == {"311:2437": ["a"]}
+        assert unir(None, {"311:2437": ["a"]}) == {"311:2437": ["a"]}
+
+    def test_no_muta_lo_que_recibe(self):
+        antes = {"311:2437": ["a"]}
+        unir(antes, {"311:2437": ["b"]})
+        assert antes == {"311:2437": ["a"]}
+
+
 class TestReducerAcumular:
     """El reducer que hace auditable el ciclo de refinamiento."""
 
@@ -170,6 +196,16 @@ class TestEvaluarCalidad:
         assert calidad.senales is False
         assert calidad.motivos == ()
         assert calidad.citas_en_el_texto == 3
+
+    def test_un_pasaje_de_otro_fragmento_se_cuenta_y_no_bloquea(self, estado_terminado):
+        # Una de las tres citas publicadas trae un pasaje que no es suyo: se publica sin
+        # mostrarlo, y la telemetría dice cuántas.
+        vigente = estado_terminado["verificaciones"][-1]
+        con_una_ajena = vigente.model_copy(update={"pasajes_propios": vigente.pasajes_propios[:2]})
+        estado = {**estado_terminado, "verificaciones": (con_una_ajena,)}
+        calidad = evaluar_calidad(estado, holgadas=3, tope_intentos=3)
+        assert calidad.citas_con_pasaje_ajeno == 1
+        assert any("se publican sin mostrarlo" in m for m in calidad.motivos)
 
     def test_pocas_citas_en_el_texto_encienden_una_senal(self, estado_terminado):
         calidad = evaluar_calidad(estado_terminado, holgadas=4, tope_intentos=3)

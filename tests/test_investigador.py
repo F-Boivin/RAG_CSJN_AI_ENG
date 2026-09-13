@@ -42,7 +42,7 @@ def pedidos(monkeypatch):
 def estado_base(**cambios) -> dict:
     base = {"messages": [], "consulta": CONSULTA, "siguiente": "investigador",
             "investigaciones": (), "verificaciones": (), "redacciones": (),
-            "recuperado": {}, "textos_leidos": {},
+            "recuperado": {}, "textos_leidos": {}, "fragmentos_por_cita": {},
             "intentos": 0, "vueltas": 0, "completado": False}
     base.update(cambios)
     return base
@@ -78,6 +78,11 @@ class TestArtefacto:
         # Es lo que el verificador usa para separar una cita pertinente de una cita cierta.
         salida = await research_agent.investigador_node(estado_base())
         assert salida["recuperado"] == {"311:2437": "6.2.7 Exceso ritual"}
+
+    async def test_devuelve_en_que_fragmento_aparecio_cada_fallo(self, pedidos):
+        salida = await research_agent.investigador_node(estado_base())
+        huella = next(iter(salida["textos_leidos"]))
+        assert salida["fragmentos_por_cita"] == {"311:2437": [huella]}
 
     async def test_devuelve_el_texto_de_los_fragmentos_que_leyo(self, pedidos):
         # Es contra esto que se comprueba el pasaje de respaldo de cada cita.

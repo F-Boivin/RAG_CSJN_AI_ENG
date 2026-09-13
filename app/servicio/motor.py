@@ -182,7 +182,7 @@ class Motor:
         entrada = {
             "messages": [], "consulta": corrida.consulta, "siguiente": "investigador",
             "investigaciones": (), "verificaciones": (), "redacciones": (),
-            "recuperado": {}, "textos_leidos": {},
+            "recuperado": {}, "textos_leidos": {}, "fragmentos_por_cita": {},
             "intentos": 0, "vueltas": 0, "completado": False,
         }
         config = {
@@ -293,6 +293,7 @@ class Motor:
             # lo que hace falta para medir si el respaldo puede pasar a vetar.
             "citas_impertinentes": calidad.citas_impertinentes,
             "citas_sin_respaldo": calidad.citas_sin_respaldo,
+            "citas_con_pasaje_ajeno": calidad.citas_con_pasaje_ajeno,
             "cobertura": round(calidad.cobertura, 3),
             "citas_en_el_texto": calidad.citas_en_el_texto,
             "intentos": calidad.intentos,

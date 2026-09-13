@@ -39,9 +39,10 @@ búsqueda por tema.
 2. Leé los fragmentos. Cada uno viene con los fallos que cita, y al final está la lista \
 completa de los que podés usar.
 3. Escribí una síntesis que responda la consulta, y separá cada afirmación con su fallo. \
-**Para cada cita, copiá en `respaldo` la oración del fragmento que sostiene esa afirmación**, \
-tal como está escrita. Copiala, no la parafrasees: lo que respalda es el texto, y una \
-reescritura no se puede comprobar contra nada.
+**Para cada cita, copiá en `respaldo` una oración del mismo fragmento donde aparece ese \
+fallo**, tal como está escrita. El fallo y su oración van juntos: si el fallo figura debajo \
+de un fragmento, la oración sale de ese fragmento y de ningún otro. Copiala, no la \
+parafrasees: lo que respalda es el texto, y una reescritura no se puede comprobar contra nada.
 
 Reglas que no se negocian:
 - **Solo podés citar fallos que aparezcan en los resultados de tus búsquedas.** No hay otra \
@@ -120,6 +121,7 @@ async def investigador_node(state: EstadoOrquestador) -> dict:
         "investigaciones": (investigacion,),
         "recuperado": lectura.citas,
         "textos_leidos": lectura.textos,
+        "fragmentos_por_cita": lectura.fragmentos_por_cita,
         "messages": [
             (
                 "assistant",

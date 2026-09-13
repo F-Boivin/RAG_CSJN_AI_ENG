@@ -26,7 +26,8 @@ async def verificador_node(state: EstadoOrquestador) -> dict:
         raise ErrorDeAgente(msj.ERROR_VERIFICADOR_SIN_INVESTIGACION)
 
     veredicto = await verificar(investigacion, state.get("recuperado") or {},
-                                state.get("textos_leidos") or {})
+                                state.get("textos_leidos") or {},
+                                state.get("fragmentos_por_cita") or {})
     propuestas = (len(veredicto.verificadas) + len(veredicto.inexistentes)
                   + len(veredicto.impertinentes))
     return {
@@ -56,7 +57,10 @@ def _aplanar(texto: str) -> str:
 
 
 def respaldado(respaldo: str, textos) -> bool:
-    """Si ese pasaje aparece en alguno de los fragmentos que el investigador leyó.
+    """Si ese pasaje aparece en alguno de los fragmentos que se le pasan.
+
+    Quien llama decide qué fragmentos cuentan, y el verificador le pasa solo los que traen el
+    fallo que el pasaje dice respaldar.
 
     Primero la contención literal, que es el caso normal. Cuando el retipeo la rompe, se
     comparan **listas de palabras** y no cadenas de caracteres: una palabra cambiada en el
@@ -113,21 +117,32 @@ def citas_distintas(investigacion: Investigacion) -> list[str]:
 
 async def verificar(investigacion: Investigacion,
                     recuperado: dict[str, str] | None = None,
-                    textos: dict[str, str] | None = None) -> Verificacion:
+                    textos: dict[str, str] | None = None,
+                    fragmentos_por_cita: dict[str, list[str]] | None = None) -> Verificacion:
     """Devuelve el veredicto sobre una investigación.
 
-    Dos comprobaciones y no una. **Que la cita exista** se contrasta contra el padrón, que son
+    Tres comprobaciones y no una. **Que la cita exista** se contrasta contra el padrón, que son
     las 9.005 citas del corpus. **Que venga al caso** se contrasta contra `recuperado`, el
-    registro de qué fragmento trajo cada fallo durante esta corrida.
+    registro de qué fragmento trajo cada fallo durante esta corrida. **Que el pasaje la
+    respalde** se contrasta contra el texto de los fragmentos donde aparece ese fallo, y de
+    ningún otro.
 
-    La segunda faltaba, y su ausencia es lo que dejó publicar una respuesta sobre el IVA
-    sostenida en cuatro fallos anteriores a que el IVA existiera: los cuatro estaban en el
-    padrón, ninguno en un texto que el investigador hubiera leído.
+    Las dos últimas faltaban. Sin la segunda se publicó una respuesta sobre el IVA sostenida en
+    cuatro fallos anteriores a que el IVA existiera, todos en el padrón y ninguno leído. Y la
+    tercera, mientras buscó el pasaje en todo lo leído, dejó publicar una cita de un documento
+    con el respaldo de otro.
 
     Separada del nodo para poder probarla sola, sin montar el grafo.
     """
     recuperado = recuperado or {}
-    leidos = list((textos or {}).values())
+    textos = textos or {}
+    fragmentos_por_cita = fragmentos_por_cita or {}
+
+    def textos_de(fallo: str) -> list[str]:
+        """El texto de los fragmentos donde aparece ese fallo, y de ningún otro."""
+        clave = herramientas.normalizar_cita(fallo)
+        return [textos[h] for h in fragmentos_por_cita.get(clave, ()) if h in textos]
+
     if not investigacion.citas:
         # Una síntesis sin citas es inverificable, que es distinto de tener las citas mal:
         # se rechaza diciendo exactamente eso.
@@ -222,6 +237,18 @@ async def verificar(investigacion: Investigacion,
     # Alcanza con que uno de sus pasajes resista: un fallo puede estar citado en dos lugares
     # del corpus, y exigir que todas sus afirmaciones salgan del mismo fragmento seria pedir
     # algo que el corpus no siempre permite.
+    #
+    # Dos varas, y cada una decide una cosa distinta. **La que veta busca el pasaje en todo
+    # lo leido**: un pasaje que no esta en ningun texto servido es un pasaje inventado, y esa
+    # cita no se publica. **La que decide si el lector ve el pasaje lo busca solo en los
+    # fragmentos que citan ese fallo**, y va mas abajo.
+    #
+    # Se probo vetar con la vara estricta y se midio sobre 20 consultas: cero pasajes ajenos,
+    # pero 31 correcciones contra 9, la latencia mediana de 18 a 40 segundos, y tres consultas
+    # que el corpus si responde terminaron sin base. En los suplementos el fragmento que trata
+    # el tema casi nunca cita el fallo —el 66% no cita ninguno—, asi que la vara estricta los
+    # dejaba sin nada con que respaldar.
+    leidos = list(textos.values())
     sin_respaldo = tuple(
         c for c in verificadas
         if not any(respaldado(r, leidos) for r in _respaldos_de(investigacion, c))
@@ -234,11 +261,28 @@ async def verificar(investigacion: Investigacion,
         # que una consulta sin nada respaldado termine en «no hay base suficiente»—, que es
         # el mismo camino que ya siguen las citas ajenas al tema.
         verificadas = tuple(c for c in verificadas if c not in sin_respaldo)
+
+    # La vara estricta: el pasaje esta en un fragmento que cita ese mismo fallo. No veta —ver
+    # arriba por que— y decide algo mas acotado: **que pasaje le muestra la ficha al lector**.
+    # En produccion, 4 de 14 pasajes publicados venian de un documento distinto al que citaba
+    # el fallo, y la ficha los presentaba como su respaldo. Una cita sin pasaje propio se
+    # publica igual, con su afirmacion y su link oficial, y sin pasaje a la vista.
+    #
+    # **Se guarda el pasaje, no el fallo.** Un fallo puede sostener dos afirmaciones con dos
+    # pasajes, uno propio y otro ajeno; marcar el fallo como bueno por el primero dejaba que la
+    # ficha mostrara el segundo. Medido: Mazzeo, 330:3248, salio con un pasaje sobre la
+    # Convencion de imprescriptibilidad que no estaba en ninguno de sus 26 fragmentos.
+    pasajes_propios = []
+    for fallo in verificadas:
+        propios = [r for r in _respaldos_de(investigacion, fallo) if respaldado(r, textos_de(fallo))]
+        if propios:
+            pasajes_propios.append((herramientas.normalizar_cita(fallo), propios[0]))
     for cita in sin_respaldo:
         afirmacion = next((c.afirmacion for c in investigacion.citas if c.fallo == cita), "")
         observaciones.append(
-            f"'{cita}' no viene con un pasaje del fragmento que lo respalde: copia la "
-            f"oracion del texto que sostiene «{afirmacion[:70]}», tal como esta escrita"
+            f"'{cita}' no viene con un pasaje que lo respalde: copia, del mismo fragmento "
+            f"donde aparece ese fallo, la oracion que sostiene «{afirmacion[:70]}», tal como "
+            f"esta escrita. Una oracion de otro fragmento no respalda a este fallo"
         )
 
     aprobado = not (inexistentes or impertinentes or amontonadas or sin_numero
@@ -258,6 +302,7 @@ async def verificar(investigacion: Investigacion,
         inexistentes=inexistentes,
         impertinentes=impertinentes,
         sin_respaldo=sin_respaldo,
+        pasajes_propios=tuple(pasajes_propios),
         aprobado=aprobado,
         observaciones=tuple(observaciones),
     )
