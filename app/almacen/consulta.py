@@ -13,6 +13,7 @@ import threading
 import unicodedata
 from difflib import get_close_matches
 from pathlib import Path
+from typing import Optional, Sequence
 
 import app.nucleo.constantes as cfg
 import app.nucleo.mensajes as msj
@@ -31,8 +32,7 @@ class Lexico:
     `check_same_thread=False` porque las consultas corren en `asyncio.to_thread` y el hilo del
     pool cambia entre llamadas; esa bandera apaga el control de sqlite3 y deja la exclusión a
     cargo de quien la usa. Sin el lock, cuatro caminos entran a la misma conexión desde hilos
-    distintos —`buscar` desde el recuperador léxico, `citas_de_subseccion` y
-    `subsecciones_parecidas` desde la herramienta de fallos, y el padrón desde el verificador—
+    distintos —`buscar` desde el recuperador léxico y el padrón desde el verificador—
     y con tres consultas concurrentes se pisan. Reproducido sin modelos: ocho hilos sobre esta
     clase daban `IndexError: tuple index out of range` y `bad parameter or other API misuse`
     desde adentro de `fetchall`, que era el error intermitente que se llevaba puesta la
@@ -136,32 +136,10 @@ class Lexico:
         ]
         return por_sufijo[0] if len(por_sufijo) == 1 else None
 
-    def subsecciones_parecidas(self, nombre: str, cuantas: int = None) -> list[str]:
-        """Las subsecciones más cercanas al nombre que escribió el modelo.
-
-        Con ~800 subsecciones, devolver la lista entera le consume el contexto al investigador
-        cada vez que erra un nombre. Ocho candidatos alcanzan para que corrija.
-        """
-        cuantas = cuantas or cfg.SUGERENCIAS_SUBSECCION
-        nombres = self.subsecciones()
-        claves = {c.clave_subseccion(s): s for s in nombres}
-        cercanas = get_close_matches(c.clave_subseccion(nombre), list(claves), n=cuantas,
-                                     cutoff=0.4)
-        return [claves[k] for k in cercanas] or nombres[:cuantas]
-
-    def citas_de_subseccion(self, subseccion: str) -> dict[str, str]:
-        """Las citas de una subsección, con su link. Es lo que devuelve `fallos_citados`."""
-        filas = self._filas(
-            "SELECT cs.cita AS cita, p.url AS url "
-            "FROM citas_por_subseccion cs LEFT JOIN padron p ON p.cita = cs.cita "
-            "WHERE cs.subseccion = ?",
-            (subseccion,),
-        )
-        return {f["cita"]: (f["url"] or "") for f in filas}
-
     # --- Búsqueda léxica ---
 
-    def buscar(self, consulta: str, cantidad: int) -> list[tuple[str, str, dict]]:
+    def buscar(self, consulta: str, cantidad: int,
+               fuentes: Optional[Sequence[str]] = None) -> list[tuple[str, str, dict]]:
         """Los fragmentos que mejor matchean la consulta, por `bm25()` de FTS5.
 
         `bm25()` devuelve valores negativos y mejor cuanto más negativo, así que el orden es
@@ -172,15 +150,22 @@ class Lexico:
         La consulta se pasa como una lista de términos entre comillas: FTS5 trata los
         operadores (`AND`, `*`, `-`) como sintaxis, y una consulta en lenguaje natural que
         traiga uno de esos caracteres reventaría con un error de sintaxis.
+
+        Con `fuentes`, la búsqueda queda acotada a esos tipos de documento. Es lo que permite
+        que el ensamble consulte los dos pools del corpus por separado y los pese distinto:
+        filtrar después de recuperar no serviría, porque los 24.145 fragmentos de sentencias
+        copan el top-k antes de que haya nada que filtrar.
         """
         expresion = " OR ".join(f'"{t}"' for t in _terminos(consulta))
         if not expresion:
             return []
+        fuentes = tuple(fuentes or ())
+        filtro = f" AND f.fuente IN ({','.join('?' * len(fuentes))})" if fuentes else ""
         filas = self._filas(
             "SELECT f.id, f.texto, f.origen, f.seccion, f.subseccion, f.fuente, f.pagina "
             "FROM fts JOIN fragmentos f ON f.rowid = fts.rowid "
-            "WHERE fts MATCH ? ORDER BY bm25(fts, ?, ?, ?) LIMIT ?",
-            (expresion, *cfg.PESOS_BM25, cantidad),
+            f"WHERE fts MATCH ?{filtro} ORDER BY bm25(fts, ?, ?, ?) LIMIT ?",
+            (expresion, *fuentes, *cfg.PESOS_BM25, cantidad),
         )
         return [
             (f["id"], f["texto"], {

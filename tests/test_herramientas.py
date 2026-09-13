@@ -6,7 +6,10 @@ horario o un resultado de votación se parecen a una cita— y son los que decid
 de las expresiones regulares.
 """
 
+import json
+
 import pytest
+from langchain_core.tools import ToolException
 
 import app.nucleo.mensajes as msj
 from app.rag import herramientas
@@ -91,45 +94,6 @@ class TestLeerVeredicto:
         assert herramientas.leer_veredicto("basura sin separador") == {}
 
 
-class TestSubsecciones:
-    """La tolerancia de nombres que evita rechazar subsecciones que existen."""
-
-    @pytest.fixture(autouse=True)
-    def corpus_falso(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(herramientas, "_lexico", lexico_de_prueba(
-            tmp_path / "lexico.sqlite3", subsecciones=[
-                "6.1.1 Concepto",
-                "6.2.7 Exceso ritual manifiesto",
-                "6.4.1 Obligación del a quo",
-            ]))
-
-    def test_el_nombre_exacto_existe(self):
-        assert herramientas.subseccion_existe("6.2.7 Exceso ritual manifiesto")
-
-    def test_sin_numeracion_tambien_existe(self):
-        # El modelo escribe el título sin su número; exigir el exacto daría por inventada
-        # una subsección que está en el corpus.
-        assert herramientas.subseccion_existe("Exceso ritual manifiesto")
-
-    def test_sin_tildes_tambien_existe(self):
-        assert herramientas.subseccion_existe("Obligacion del a quo")
-
-    def test_una_subseccion_inventada_no_existe(self):
-        assert not herramientas.subseccion_existe("6.9.9 Doctrina inventada")
-
-    def test_resolver_devuelve_el_nombre_del_indice(self):
-        assert herramientas.resolver_subseccion("exceso ritual manifiesto") == \
-            "6.2.7 Exceso ritual manifiesto"
-
-    def test_resolver_prefiere_la_igualdad_exacta(self):
-        assert herramientas.resolver_subseccion("6.1.1 Concepto") == "6.1.1 Concepto"
-
-    def test_una_ambiguedad_devuelve_none_en_vez_de_adivinar(self, monkeypatch, tmp_path):
-        monkeypatch.setattr(herramientas, "_lexico", lexico_de_prueba(
-            tmp_path / "ambiguo.sqlite3", subsecciones=["6.1.1 Concepto", "6.3.1 Concepto"]))
-        assert herramientas.resolver_subseccion("Concepto") is None
-
-
 class TestLinkOficial:
     """La herramienta del redactor, acotada por cierre a lo verificado en esa corrida."""
 
@@ -179,3 +143,132 @@ class TestContarLlamadas:
 
     def test_un_historial_sin_llamadas_da_cero(self):
         assert herramientas.contar_llamadas([]) == 0
+
+
+class TestBuscarDoctrina:
+    """La única herramienta del investigador, y el registro de lo que le sirvió.
+
+    Lo que se prueba acá es el invariante que faltaba: **un fallo llega al investigador solo
+    si está en el texto de un fragmento que la búsqueda devolvió**. Antes existía una segunda
+    herramienta que repartía las citas de una subsección entera —264 para un top-k que traía
+    una—, y de ahí salieron 13 de las 17 citas que el buscador publicó en producción.
+    """
+
+    PADRON = {"311:2437": "https://ejemplo/311-2437", "315:1848": "",
+              "330:1228": "https://ejemplo/330-1228", "112:384": ""}
+
+    @pytest.fixture(autouse=True)
+    def corpus_falso(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(herramientas, "_lexico", lexico_de_prueba(
+            tmp_path / "lexico.sqlite3", padron=dict(self.PADRON)))
+
+    def recuperador(self, monkeypatch, documentos):
+        """Un doble del recuperador por cuota: acá se prueba la herramienta, no el ensamble."""
+        class Falso:
+            async def recuperar(self, _consulta, cantidad):
+                return documentos[:cantidad]
+
+        monkeypatch.setattr(herramientas, "_hibrido", Falso())
+
+    def doc(self, texto, subseccion="6.1.1 Concepto", citas_urls=None):
+        from langchain_core.documents import Document
+        metadata = {"subseccion": subseccion, "origen": "cuadernillo-6-1", "fuente": "cuadernillo"}
+        if citas_urls is not None:
+            metadata["citas_urls"] = json.dumps(citas_urls)
+        return Document(page_content=texto, metadata=metadata)
+
+    async def test_cada_fragmento_llega_con_los_fallos_que_cita(self, monkeypatch):
+        self.recuperador(monkeypatch, [
+            self.doc("La doctrina no habilita una tercera instancia (Fallos: 311:2437).")])
+        lectura = herramientas.Lectura()
+        salida = await herramientas.crear_buscar_doctrina(lectura).ainvoke(
+            {"consulta": "arbitrariedad"})
+        assert "Fallos citados acá: Fallos: 311:2437" in salida
+
+    async def test_el_registro_anota_de_que_subseccion_salio_cada_fallo(self, monkeypatch):
+        self.recuperador(monkeypatch, [
+            self.doc("Sostiene (Fallos: 311:2437).", subseccion="6.2.7 Exceso ritual")])
+        lectura = herramientas.Lectura()
+        await herramientas.crear_buscar_doctrina(lectura).ainvoke({"consulta": "arbitrariedad"})
+        assert lectura.citas == {"311:2437": "6.2.7 Exceso ritual"}
+
+    async def test_la_primera_procedencia_es_la_que_queda(self, monkeypatch):
+        self.recuperador(monkeypatch, [
+            self.doc("Primero (Fallos: 311:2437).", subseccion="6.1.1 Concepto"),
+            self.doc("Despues (Fallos: 311:2437).", subseccion="6.9.9 Otra"),
+        ])
+        lectura = herramientas.Lectura()
+        await herramientas.crear_buscar_doctrina(lectura).ainvoke({"consulta": "arbitrariedad"})
+        assert lectura.citas["311:2437"] == "6.1.1 Concepto"
+
+    async def test_las_anotaciones_del_pdf_suman_a_lo_que_dice_el_texto(self, monkeypatch):
+        # El link viene anclado al texto exacto de la cita, y esas anotaciones cubren más
+        # citas que el regex: 2.440 contra 1.720 en las notas.
+        self.recuperador(monkeypatch, [
+            self.doc("Un parrafo sin ninguna cita escrita en el cuerpo.",
+                     citas_urls={"330:1228": "https://ejemplo/330-1228"})])
+        lectura = herramientas.Lectura()
+        salida = await herramientas.crear_buscar_doctrina(lectura).ainvoke(
+            {"consulta": "arbitrariedad"})
+        assert "330:1228" in lectura.citas and "Fallos: 330:1228" in salida
+
+    async def test_una_cita_que_el_padron_no_tiene_no_se_ofrece(self, monkeypatch):
+        # El verificador no la iba a reconocer: ofrecerla es mandar al investigador a un
+        # rechazo seguro. El texto del fragmento va tal cual —es el corpus—, y lo que no
+        # aparece es el ofrecimiento.
+        self.recuperador(monkeypatch, [self.doc("Sostiene (Fallos: 999:9999).")])
+        lectura = herramientas.Lectura()
+        salida = await herramientas.crear_buscar_doctrina(lectura).ainvoke(
+            {"consulta": "arbitrariedad"})
+        assert lectura.citas == {}
+        assert msj.ENCABEZADO_CITAS_DEL_FRAGMENTO not in salida
+        assert msj.MENSAJE_SIN_CITABLES in salida
+
+    async def test_el_cierre_lista_todo_lo_citable(self, monkeypatch):
+        self.recuperador(monkeypatch, [
+            self.doc("Uno (Fallos: 315:1848)."), self.doc("Dos (Fallos: 311:2437)."),
+        ])
+        salida = await herramientas.crear_buscar_doctrina(herramientas.Lectura()).ainvoke({"consulta": "arbitrariedad"})
+        assert msj.ENCABEZADO_CITABLES in salida
+        cierre = salida.split(msj.ENCABEZADO_CITABLES)[1]
+        assert "311:2437" in cierre and "315:1848" in cierre
+
+    async def test_sin_una_sola_cita_lo_dice_en_vez_de_callarse(self, monkeypatch):
+        self.recuperador(monkeypatch, [self.doc("Un parrafo de doctrina sin citas.")])
+        salida = await herramientas.crear_buscar_doctrina(herramientas.Lectura()).ainvoke({"consulta": "arbitrariedad"})
+        assert msj.MENSAJE_SIN_CITABLES in salida
+
+    async def test_sin_resultados_avisa(self, monkeypatch):
+        self.recuperador(monkeypatch, [])
+        assert await herramientas.crear_buscar_doctrina(herramientas.Lectura()).ainvoke(
+            {"consulta": "arbitrariedad"}) == msj.MENSAJE_SIN_RESULTADOS
+
+    async def test_dos_corridas_no_comparten_registro(self, monkeypatch):
+        # Dos consultas simultáneas en el mismo proceso: mezclarlas haría que el chequeo de
+        # pertinencia apruebe citas que este investigador nunca vio.
+        self.recuperador(monkeypatch, [self.doc("Sostiene (Fallos: 311:2437).")])
+        una, otra = herramientas.Lectura(), herramientas.Lectura()
+        await herramientas.crear_buscar_doctrina(una).ainvoke({"consulta": "arbitrariedad"})
+        assert otra.citas == {} and una.citas != {}
+
+    async def test_metadata_rota_no_tumba_la_busqueda(self, monkeypatch):
+        from langchain_core.documents import Document
+        roto = Document(page_content="Sostiene (Fallos: 311:2437).",
+                        metadata={"subseccion": "6.1.1 Concepto", "citas_urls": "{no es json"})
+        self.recuperador(monkeypatch, [roto])
+        lectura = herramientas.Lectura()
+        salida = await herramientas.crear_buscar_doctrina(lectura).ainvoke(
+            {"consulta": "arbitrariedad"})
+        assert lectura.citas == {"311:2437": "6.1.1 Concepto"}
+        assert "311:2437" in salida
+
+    async def test_una_caida_del_indice_vuelve_como_observacion(self, monkeypatch):
+        class Caido:
+            async def recuperar(self, *_a, **_k):
+                raise OSError("indice caido")
+
+        monkeypatch.setattr(herramientas, "_hibrido", Caido())
+        herramienta = herramientas.crear_buscar_doctrina(herramientas.Lectura())
+        assert herramienta.handle_tool_error is True
+        with pytest.raises(ToolException):
+            await herramienta.coroutine(consulta="arbitrariedad")

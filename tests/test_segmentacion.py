@@ -160,7 +160,7 @@ class TestFragmentos:
         assert f["url_documento"].endswith("/documento")
 
     def test_solo_lleva_las_citas_que_ese_fragmento_escribe(self, fragmentos):
-        # Es lo que hace que `fallos_citados` responda por subsección y no por documento.
+        # Es lo que hace que la procedencia de una cita sea la subsección y no el documento.
         con_cita = [f for f in fragmentos if "343:2211" in f["citas_urls"]]
         assert all("343:2211" in f["texto"] for f in con_cita)
 

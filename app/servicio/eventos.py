@@ -102,15 +102,24 @@ def _del_verificador(actualizacion: dict) -> Evento | None:
 
 
 def fichas_de_citas(estado: dict, padron: dict[str, str]) -> list[dict]:
-    """Las citas que la respuesta usa, con su link y de dónde salieron.
+    """Las citas que la respuesta usa, con su link, de dónde salieron y qué las respalda.
 
-    La URL sale del padrón del índice; la afirmación y la subsección, de la investigación. Es
-    lo que la interfaz muestra debajo del texto.
+    Cuatro datos y cuatro procedencias, y solo una es del modelo. La URL sale del padrón del
+    índice. **La subsección sale del registro de lo recuperado**, que sabe qué fragmento trajo
+    cada fallo: antes la escribía el investigador y el verificador la rechazaba cuando no
+    resolvía, lo que le costó a la consulta insignia sus tres correcciones. **El respaldo es el
+    pasaje del corpus** que el verificador ya comprobó contra el texto leído, así que lo que el
+    lector ve es la oración del documento y no una reescritura. La afirmación sí es del
+    investigador, porque es lo único acá que nadie más puede escribir.
+
+    Mostrar el respaldo es lo que le permite a quien lee juzgar el salto entre el pasaje y la
+    afirmación, que es justo lo que el sistema no comprueba.
     """
     from app.rag import citas as c
 
     redacciones = estado.get("redacciones") or ()
     investigaciones = estado.get("investigaciones") or ()
+    recuperado = estado.get("recuperado") or {}
     if not redacciones:
         return []
     por_cita = {c.normalizar_cita(cita.fallo): cita
@@ -122,7 +131,8 @@ def fichas_de_citas(estado: dict, padron: dict[str, str]) -> list[dict]:
         fichas.append({
             "fallo": f"Fallos: {clave}" if clave else usada,
             "url": padron.get(clave, ""),
-            "subseccion": origen.subseccion if origen else "",
+            "subseccion": recuperado.get(clave, ""),
             "afirmacion": origen.afirmacion if origen else "",
+            "respaldo": origen.respaldo if origen else "",
         })
     return sorted(fichas, key=lambda f: c.clave_fallo(f["fallo"]))

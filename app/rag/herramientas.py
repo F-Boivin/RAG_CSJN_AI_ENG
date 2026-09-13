@@ -2,13 +2,17 @@
 
 Diseño anti-alucinación: **ninguna URL oficial sale de un modelo**. Todas salen del índice, y
 las que el corpus no enlaza las arma `citas.link_de_cita` con la plantilla oficial a partir
-del tomo y la página. `buscar_doctrina` devuelve los fragmentos SIN links, así que las URLs
-llegan por dos vías: `fallos_citados` se las da al investigador por subsección, y
-`link_oficial` al redactor, acotada a las citas que el verificador ya aprobó.
+del tomo y la página. `buscar_doctrina` devuelve los fragmentos con los fallos que cada uno
+cita y sin links; los links los reparte `link_oficial` al redactor, acotada a las citas que el
+verificador ya aprobó.
 
-Cuatro herramientas y tres consumidores distintos: dos las usa el ReAct del investigador, una
-el ReAct del redactor, y a `verificar_citas` la invoca directamente el código del nodo
-verificador, que es por qué es la única con `handle_tool_error = False`.
+Y ninguna cita sale de afuera del texto que el investigador leyó. `crear_buscar_doctrina` anota
+en un registro qué fragmento trajo cada fallo, y el verificador rechaza lo que no esté ahí: una
+cita puede ser cierta y ajena al tema, y el padrón solo sabe de lo primero.
+
+Tres herramientas y tres consumidores distintos: una la usa el ReAct del investigador, otra el
+ReAct del redactor, y a `verificar_citas` la invoca directamente el código del nodo verificador,
+que es por qué es la única con `handle_tool_error = False`.
 
 El padrón y las subsecciones se leen del índice léxico, que la ingesta dejó calculados. Antes
 se armaban trayendo el corpus entero a memoria en el arranque; con el corpus completo eso son
@@ -16,10 +20,11 @@ cientos de MB antes de atender la primera consulta.
 """
 
 import asyncio
+import hashlib
+import json
 
 from chromadb.errors import ChromaError
 from langchain_chroma import Chroma
-from langchain_classic.retrievers import EnsembleRetriever
 from langchain_core.tools import ToolException, tool
 from openai import APIConnectionError, APIError, RateLimitError
 from pydantic import BaseModel, Field
@@ -28,9 +33,9 @@ import app.nucleo.constantes as cfg
 import app.nucleo.mensajes as msj
 from app.almacen.consulta import Lexico
 from app.nucleo.errores import ErrorDeAlmacenamiento
-from app.observabilidad.trazas import anotar_documentos, span_de_recuperacion
+from app.observabilidad.trazas import span_de_recuperacion
 from app.rag import citas as c
-from app.rag.hibrido import crear_hibrido
+from app.rag.hibrido import RecuperadorPorCuota, crear_hibrido
 from app.rag.ingesta.markdown import contar_tokens
 
 NL = chr(10)
@@ -44,7 +49,7 @@ contar_llamadas = c.contar_llamadas
 
 _vectorstore: Chroma | None = None
 _lexico: Lexico | None = None
-_hibrido: EnsembleRetriever | None = None
+_hibrido: RecuperadorPorCuota | None = None
 
 
 def inicializar(vectorstore: Chroma, lexico: Lexico) -> None:
@@ -64,8 +69,8 @@ def inicializar(vectorstore: Chroma, lexico: Lexico) -> None:
     contar_tokens("")
 
 
-def _hibrido_actual() -> EnsembleRetriever:
-    """El retriever híbrido, o el aviso de que faltó inicializar."""
+def _hibrido_actual() -> RecuperadorPorCuota:
+    """El recuperador por cuota, o el aviso de que faltó inicializar."""
     if _hibrido is None:
         raise RuntimeError(msj.ERROR_HERRAMIENTA_NO_INICIALIZADA)
     return _hibrido
@@ -81,21 +86,6 @@ def _indice() -> Lexico:
 def padron_de_citas() -> dict[str, str]:
     """Todas las citas del corpus: "tomo:pagina" -> URL oficial (o "" sin link)."""
     return _indice().padron()
-
-
-def subsecciones_del_corpus() -> list[str]:
-    """Los nombres exactos de subsección del índice."""
-    return _indice().subsecciones()
-
-
-def subseccion_existe(nombre: str) -> bool:
-    """True si esa subsección está en el corpus, tolerando la numeración y las tildes."""
-    return _indice().subseccion_existe(nombre)
-
-
-def resolver_subseccion(nombre: str) -> str | None:
-    """El nombre tal cual figura en el índice, a partir del que escribió el modelo."""
-    return _indice().resolver_subseccion(nombre)
 
 
 class EntradaBusqueda(BaseModel):
@@ -114,126 +104,151 @@ class EntradaBusqueda(BaseModel):
     )
 
 
-class EntradaFallos(BaseModel):
-    """Entrada de fallos_citados."""
+def citas_del_fragmento(doc, padron: dict[str, str]) -> list[str]:
+    """Los fallos que ese fragmento cita, normalizados y comprobados contra el padrón.
 
-    subseccion: str = Field(
-        min_length=3,
-        max_length=200,
-        description=(
-            "Nombre de la subsección del corpus, de los que buscar_doctrina lista al final. "
-            "Se acepta con su numeración o sin ella: «6.2.7 Exceso ritual manifiesto» y "
-            "«Exceso ritual manifiesto» llegan al mismo lugar."
-        ),
-    )
+    Dos fuentes que se suman. La primera es el texto del fragmento, leído con el mismo patrón
+    que usa el verificador. La segunda es `citas_urls`, que la ingesta sacó de las anotaciones
+    del PDF: la Secretaría ancló el link oficial al texto exacto de la cita, y esas anotaciones
+    cubren más citas que el regex —2.440 contra 1.720 en las notas—.
 
-
-@tool(args_schema=EntradaBusqueda)
-async def buscar_doctrina(consulta: str, cantidad: int = cfg.RESULTADOS_RECUPERADOS) -> str:
-    """Busca doctrina y jurisprudencia de la CSJN en el corpus indexado.
-
-    Usá esta herramienta cuando el usuario pregunte por doctrina, precedentes o
-    criterios de la Corte Suprema: el corpus reúne el cuadernillo sobre sentencias
-    arbitrarias, las notas de jurisprudencia y los suplementos temáticos de la
-    Secretaría de Jurisprudencia. Devuelve fragmentos con su subsección entre
-    corchetes; los fragmentos citan números de fallo pero NO traen links: para los
-    links usá fallos_citados. Busca por significado y por palabra exacta a la vez,
-    así que sirve tanto para un tema como para un número de fallo escrito literal.
-    No sirve para otras ramas del derecho ni para hechos actuales.
-
-    Args:
-        consulta: tema o pregunta a buscar (3 a 500 caracteres).
-        cantidad: máximo de fragmentos a devolver (1 a 8; por defecto 4).
-
-    Returns:
-        Fragmentos ordenados por similitud, cada uno encabezado por su subsección.
-
-    Raises:
-        ToolException: si el índice o la API de embeddings fallan; el mensaje explica
-        el problema para que el modelo pueda informarlo.
+    El cruce contra el padrón es lo que hace que esta lista sea citable: una cita que el
+    verificador no va a reconocer no tiene por qué llegarle al investigador.
     """
-    try:
-        with span_de_recuperacion("hibrido_fusion", consulta, k=cantidad,
-                                  candidatos=cfg.CANDIDATOS_POR_RETRIEVER) as span:
-            fusionados = await _hibrido_actual().ainvoke(consulta)
-            # El recorte se aplica sobre la lista ya fusionada: cada retriever aporta más
-            # candidatos justamente para que la fusión tenga de dónde elegir.
-            documentos = fusionados[:cantidad]
-            anotar_documentos(span, documentos)
-    except (RateLimitError, APIConnectionError, APIError, ChromaError,
-            ErrorDeAlmacenamiento, OSError) as exc:
-        raise ToolException(msj.ERROR_HERRAMIENTA_BASE.format(detalle=exc)) from exc
-
-    if not documentos:
-        return msj.MENSAJE_SIN_RESULTADOS
-
-    partes = []
-    subsecciones = []
-    for doc in documentos:
-        subseccion = doc.metadata.get("subseccion", "")
-        if subseccion and subseccion not in subsecciones:
-            subsecciones.append(subseccion)
-        texto = doc.page_content.strip()
-        if len(texto) > cfg.LARGO_MAXIMO_FRAGMENTO:
-            texto = texto[: cfg.LARGO_MAXIMO_FRAGMENTO] + "…"
-        partes.append(f"[{subseccion}]\n{texto}")
-
-    # El separador entre fragmentos también aparece dentro de ellos: el corpus separa sus
-    # extractos con `---` y el splitter lo conserva. Los encabezados `[subseccion]` son la
-    # marca inequívoca de dónde empieza cada fragmento; partir esta salida por el separador
-    # cuenta de más. El modelo se orienta por los encabezados, así que queda documentado.
-    listado = "\n---\n".join(partes)
-    return f"{listado}\n\n{msj.ENCABEZADO_SUBSECCIONES} {'; '.join(subsecciones)}"
+    claves = {c.normalizar_cita(x) for x in c.citas_del_texto(doc.page_content)}
+    crudo = doc.metadata.get("citas_urls")
+    if crudo:
+        try:
+            claves |= {c.normalizar_cita(x) for x in json.loads(crudo)}
+        except (json.JSONDecodeError, TypeError):
+            # Metadata rota de un fragmento no puede tumbar la búsqueda: el texto alcanza.
+            pass
+    return sorted((k for k in claves if k and k in padron), key=c.clave_fallo)
 
 
-@tool(args_schema=EntradaFallos)
-async def fallos_citados(subseccion: str) -> str:
-    """Lista los fallos citados en una subsección del corpus, con su link oficial.
+class Lectura:
+    """Lo que la búsqueda le sirvió al investigador durante una corrida.
 
-    Usá esta herramienta DESPUÉS de buscar_doctrina, cuando el usuario pida links,
-    fuentes verificables o el detalle de los fallos de una subsección. Las
-    referencias salen del índice, nunca del modelo: si un fallo no aparece acá, no
-    está citado en esa subsección.
+    Dos registros, porque el verificador hace dos preguntas distintas. `citas` mapea
+    `"tomo:pagina"` a la subsección del primer fragmento que trajo ese fallo, y responde
+    **de dónde salió esta cita**. `textos` guarda el texto de cada fragmento tal como el
+    investigador lo vio —truncado igual—, y responde **qué decía**: es contra esto que se
+    comprueba el pasaje con el que cada afirmación dice sostenerse.
 
-    Args:
-        subseccion: nombre exacto de la subsección, tomado de la lista final de
-            buscar_doctrina (si viene con corchetes, se toleran).
-
-    Returns:
-        Lista "Fallos: tomo:página — URL" en orden cronológico, o, si la subsección
-        no existe, un aviso con los nombres más parecidos para elegir uno y reintentar.
-
-    Raises:
-        ToolException: si el índice falla.
+    La huella del texto es su clave, así que un fragmento que vuelve en dos búsquedas se
+    guarda una vez.
     """
-    # El índice guarda los títulos con su numeración y el modelo los escribe sin ella, así que
-    # la consulta se hace contra el nombre resuelto. Es la misma tolerancia que el verificador
-    # aplica por su lado.
-    try:
-        exacta = await asyncio.to_thread(resolver_subseccion, subseccion)
-        if exacta is None:
-            pedido = subseccion.strip().strip("[]").strip()
-            parecidas = await asyncio.to_thread(_indice().subsecciones_parecidas, pedido)
-            return msj.MENSAJE_SIN_SUBSECCION.format(
-                subseccion=pedido, validas="; ".join(parecidas)
-            )
-        with span_de_recuperacion("citas_por_subseccion", exacta):
-            fallos = await asyncio.to_thread(_indice().citas_de_subseccion, exacta)
-    except (ErrorDeAlmacenamiento, OSError, ValueError) as exc:
-        raise ToolException(msj.ERROR_HERRAMIENTA_BASE.format(detalle=exc)) from exc
 
-    if not fallos:
-        parecidas = await asyncio.to_thread(_indice().subsecciones_parecidas, exacta)
-        return msj.MENSAJE_SIN_SUBSECCION.format(
-            subseccion=exacta, validas="; ".join(parecidas)
-        )
+    def __init__(self):
+        self.citas: dict[str, str] = {}
+        self.textos: dict[str, str] = {}
 
-    lineas = [
-        f"- Fallos: {cita} — {url}" if url else f"- Fallos: {cita}"
-        for cita, url in sorted(fallos.items(), key=lambda par: c.clave_fallo(par[0]))
-    ]
-    encabezado = msj.ENCABEZADO_FALLOS.format(subseccion=exacta)
-    return f"{encabezado}\n" + "\n".join(lineas)
+    def anotar(self, texto: str, subseccion: str, fallos: list[str]) -> None:
+        self.textos.setdefault(huella_de_texto(texto), texto)
+        for fallo in fallos:
+            # La primera procedencia es la que vale: el mismo fallo puede volver a aparecer
+            # más adelante sin que eso cambie de dónde lo leyó el investigador.
+            self.citas.setdefault(fallo, subseccion)
+
+
+def huella_de_texto(texto: str) -> str:
+    """Identifica un fragmento por su contenido, que es lo único estable que tiene acá."""
+    return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:16]
+
+
+def crear_buscar_doctrina(lectura: "Lectura"):
+    """Arma la herramienta de búsqueda, que anota en `lectura` lo que va sirviendo.
+
+    Lo anotado es lo que después separa una cita pertinente de una cita meramente cierta. **El
+    verificador comprueba que exista; esto comprueba que el investigador la haya leído.**
+
+    Antes esa mitad no existía. Una herramienta hermana, `fallos_citados`, devolvía las citas
+    de una subsección entera: para una consulta cuyos cuatro fragmentos traían **una** cita, le
+    ofrecía 264 con su link oficial, y el prompt le decía que citara de ahí. De las 17 citas que
+    el buscador publicó en producción, 13 no estaban en ningún texto que el investigador
+    hubiera leído. El sistema contestó sobre el IVA con cuatro fallos anteriores a que el IVA
+    existiera, todos reales.
+
+    Una herramienta por corrida, como `crear_link_oficial`: el registro es de esta consulta y
+    no un estado global que dos corridas concurrentes se pisarían.
+    """
+
+    @tool(args_schema=EntradaBusqueda)
+    async def buscar_doctrina(consulta: str,
+                              cantidad: int = cfg.RESULTADOS_RECUPERADOS) -> str:
+        """Busca doctrina y jurisprudencia de la CSJN en el corpus indexado.
+
+        Usá esta herramienta cuando el usuario pregunte por doctrina, precedentes o
+        criterios de la Corte Suprema: el corpus reúne el cuadernillo sobre sentencias
+        arbitrarias, las notas de jurisprudencia y los suplementos temáticos de la
+        Secretaría de Jurisprudencia. Devuelve fragmentos con su subsección entre
+        corchetes y, debajo de cada uno, los fallos que ese fragmento cita. Busca por
+        significado y por palabra exacta a la vez, así que sirve tanto para un tema como
+        para un número de fallo escrito literal. No sirve para otras ramas del derecho ni
+        para hechos actuales.
+
+        **Solo podés citar fallos que aparezcan en estos resultados.** Si el fallo que
+        necesitás no está, buscá otra vez con otros términos: no hay ninguna otra
+        herramienta que te dé fallos.
+
+        Args:
+            consulta: tema o pregunta a buscar (3 a 500 caracteres).
+            cantidad: máximo de fragmentos a devolver (1 a 10; por defecto 8).
+
+        Returns:
+            Fragmentos ordenados por similitud, cada uno con su subsección y sus fallos, y
+            al final la lista completa de los fallos citables.
+
+        Raises:
+            ToolException: si el índice o la API de embeddings fallan; el mensaje explica
+            el problema para que el modelo pueda informarlo.
+        """
+        try:
+            # La cantidad se le pasa al recuperador en vez de recortarle la salida: el
+            # reparto entre los dos pools del corpus se calcula sobre los lugares que hay, y
+            # un recorte posterior se comería justo los del pool que va último.
+            documentos = await _hibrido_actual().recuperar(consulta, cantidad)
+            padron = await asyncio.to_thread(padron_de_citas)
+        except (RateLimitError, APIConnectionError, APIError, ChromaError,
+                ErrorDeAlmacenamiento, OSError) as exc:
+            raise ToolException(msj.ERROR_HERRAMIENTA_BASE.format(detalle=exc)) from exc
+
+        if not documentos:
+            return msj.MENSAJE_SIN_RESULTADOS
+
+        partes = []
+        citables: list[str] = []
+        for doc in documentos:
+            subseccion = doc.metadata.get("subseccion", "")
+            texto = doc.page_content.strip()
+            if len(texto) > cfg.LARGO_MAXIMO_FRAGMENTO:
+                texto = texto[: cfg.LARGO_MAXIMO_FRAGMENTO] + "…"
+            fallos = citas_del_fragmento(doc, padron)
+            # Se anota el texto ya recortado: es lo que el investigador va a poder citar, y
+            # guardar el completo daría por respaldado un pasaje que nunca vio.
+            lectura.anotar(texto, subseccion, fallos)
+            for fallo in fallos:
+                if fallo not in citables:
+                    citables.append(fallo)
+            pie = (f"{NL}{msj.ENCABEZADO_CITAS_DEL_FRAGMENTO} "
+                   f"{'; '.join(f'Fallos: {f}' for f in fallos)}" if fallos else "")
+            partes.append(f"[{subseccion}]{NL}{texto}{pie}")
+
+        # El separador entre fragmentos también aparece dentro de ellos: el corpus separa sus
+        # extractos con `---` y el splitter lo conserva. Los encabezados `[subseccion]` son la
+        # marca inequívoca de dónde empieza cada fragmento; partir esta salida por el
+        # separador cuenta de más. El modelo se orienta por los encabezados, así que queda
+        # documentado.
+        listado = f"{NL}---{NL}".join(partes)
+        if not citables:
+            return f"{listado}{NL}{NL}{msj.MENSAJE_SIN_CITABLES}"
+        cierre = "; ".join(f"Fallos: {f}" for f in sorted(citables, key=c.clave_fallo))
+        return f"{listado}{NL}{NL}{msj.ENCABEZADO_CITABLES} {cierre}"
+
+    # La consume un ReAct: el error vuelve como observación y el modelo reacciona al texto,
+    # así que no corta el grafo.
+    buscar_doctrina.handle_tool_error = True
+    return buscar_doctrina
 
 
 class EntradaVerificacion(BaseModel):
@@ -359,10 +374,8 @@ def crear_link_oficial(verificadas):
 
 # --- Configuración de las tools, toda junta ---
 
-# Las del investigador las consume un ReAct: el error vuelve como observación y el modelo
-# reacciona al texto, así que no corta el grafo.
-buscar_doctrina.handle_tool_error = True
-fallos_citados.handle_tool_error = True
+# `buscar_doctrina` se arma una por corrida en `crear_buscar_doctrina`, que le pone ahí su
+# `handle_tool_error`: el error vuelve como observación y el modelo reacciona al texto.
 
 # La del verificador la consume código, que espera el formato exacto
 # "cita | EXISTE | url". Con handle_tool_error, una caída del índice volvería como string de
@@ -372,10 +385,13 @@ fallos_citados.handle_tool_error = True
 # ErrorDeAgente.
 verificar_citas.handle_tool_error = False
 
-# La de `link_oficial` se asigna dentro de `crear_link_oficial`, porque esa tool se arma una
-# por corrida y no existe todavía cuando corre este bloque.
-
-# Las dos primeras son del investigador, que las recibe como lista porque las consume un
-# ReAct. `verificar_citas` no va en ninguna lista: al verificador no lo maneja un modelo que
-# elija herramientas, la invoca directo el código del nodo.
-HERRAMIENTAS_INVESTIGACION = [buscar_doctrina, fallos_citados]
+# Lo mismo vale para `link_oficial`: las dos que se arman por corrida llevan su configuración
+# adentro de la función que las construye, porque todavía no existen cuando corre este bloque.
+#
+# El investigador tiene una sola herramienta, y es a propósito. La segunda, `fallos_citados`,
+# repartía las citas de una subsección entera —hasta 264 para un top-k que traía una— y era de
+# donde salían las citas ciertas pero ajenas al tema. Verificado no es lo mismo que pertinente,
+# y una herramienta que reparte fallos sueltos borra esa diferencia.
+#
+# `verificar_citas` no va en ninguna lista: al verificador no lo maneja un modelo que elija
+# herramientas, la invoca directo el código del nodo.

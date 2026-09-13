@@ -13,6 +13,7 @@ from app.nucleo import precios
 from app.servicio import registro
 from app.servicio.costo import Contador
 from app.servicio.eventos import fichas_de_citas, traducir
+from tests.dobles import SUBSECCION, TEXTO_LEIDO
 
 
 class TestTraducirEventos:
@@ -86,6 +87,17 @@ class TestFichasDeCitas:
     def test_la_afirmacion_viene_de_la_investigacion(self, estado_terminado):
         fichas = fichas_de_citas(estado_terminado, {})
         assert "sostiene la doctrina" in fichas[0]["afirmacion"]
+
+    def test_la_ficha_trae_el_pasaje_que_respalda_la_cita(self, estado_terminado):
+        # Es lo que el verificador ya comprobó contra el fragmento leído. Mostrarlo es lo que
+        # le permite a quien lee juzgar el salto del pasaje a la afirmación, que es justo lo
+        # que el sistema no comprueba.
+        fichas = fichas_de_citas(estado_terminado, {})
+        assert fichas[0]["respaldo"] == TEXTO_LEIDO
+
+    def test_la_subseccion_sale_del_registro_y_no_del_modelo(self, estado_terminado):
+        fichas = fichas_de_citas(estado_terminado, {})
+        assert fichas[0]["subseccion"] == SUBSECCION
 
     def test_sin_redaccion_no_hay_fichas(self, estado_vacio):
         assert fichas_de_citas(estado_vacio, {}) == []

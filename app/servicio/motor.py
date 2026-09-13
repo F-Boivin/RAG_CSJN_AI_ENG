@@ -182,6 +182,7 @@ class Motor:
         entrada = {
             "messages": [], "consulta": corrida.consulta, "siguiente": "investigador",
             "investigaciones": (), "verificaciones": (), "redacciones": (),
+            "recuperado": {}, "textos_leidos": {},
             "intentos": 0, "vueltas": 0, "completado": False,
         }
         config = {
@@ -287,6 +288,11 @@ class Motor:
             "citas_propuestas": calidad.citas_propuestas,
             "citas_verificadas": calidad.citas_verificadas,
             "citas_inexistentes": calidad.citas_inexistentes,
+            # Las dos nuevas viajan al evento de cierre y no a una columna: el esquema de
+            # `consultas` ya está creado en producción y `senales` las lleva en texto, que es
+            # lo que hace falta para medir si el respaldo puede pasar a vetar.
+            "citas_impertinentes": calidad.citas_impertinentes,
+            "citas_sin_respaldo": calidad.citas_sin_respaldo,
             "cobertura": round(calidad.cobertura, 3),
             "citas_en_el_texto": calidad.citas_en_el_texto,
             "intentos": calidad.intentos,

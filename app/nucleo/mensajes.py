@@ -61,15 +61,21 @@ MENSAJE_INDICE_DESCARGADO = (
 )
 
 # --- Herramientas ---
-ENCABEZADO_SUBSECCIONES = "Subsecciones de estos fragmentos (para fallos_citados):"
+# La línea que acompaña a cada fragmento y la que cierra la búsqueda. Las dos dicen lo mismo
+# desde dos lados, y es a propósito: la lista final es la que el modelo mira para elegir, y la
+# de cada fragmento es la que le dice qué sostiene cada fallo.
+ENCABEZADO_CITAS_DEL_FRAGMENTO = "Fallos citados acá:"
+ENCABEZADO_CITABLES = (
+    "Fallos que podés citar, porque salieron de estos fragmentos:"
+)
+MENSAJE_SIN_CITABLES = (
+    "Ninguno de estos fragmentos cita un fallo. Buscá de nuevo con otros términos antes de "
+    "escribir la síntesis."
+)
 MENSAJE_SIN_RESULTADOS = (
     "La búsqueda no devolvió ningún fragmento para esa consulta. "
     "Probá reformularla con otros términos."
 )
-MENSAJE_SIN_SUBSECCION = (
-    "No existe la subsección «{subseccion}» en el índice. Las más parecidas son: {validas}"
-)
-ENCABEZADO_FALLOS = "Fallos citados en «{subseccion}» (fuente: metadatos del índice):"
 MENSAJE_SIN_CITAS_APROBADAS = "(ninguna: el verificador no aprobó ninguna cita)"
 
 # Respuestas de link_oficial. Las tres son observaciones para el modelo, no errores: el

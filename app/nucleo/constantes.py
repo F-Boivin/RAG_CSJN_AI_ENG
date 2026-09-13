@@ -28,14 +28,49 @@ ETIQUETA_FUENTE = "Fuente:"
 METRICA_DISTANCIA = {"hnsw:space": "cosine"}
 
 # --- Recuperación ---
-RESULTADOS_RECUPERADOS = 4
+# **El corpus tiene dos naturalezas.** Las notas y el cuadernillo son doctrina que la
+# Secretaría curó y enlazó: 1.730 fragmentos, densos en citas. Los suplementos son
+# compilaciones temáticas de sentencias completas —Habeas Corpus, Movilidad Jubilatoria,
+# Marcas y Patentes, Derecho a la Salud—: 24.145 fragmentos, el 93% del índice.
+FUENTES_DOCTRINA = ("nota", "cuadernillo")
+FUENTES_SENTENCIAS = ("suplemento",)
+
+# Cada pool tiene su cuota de lugares, y ese reparto reemplaza a la competencia abierta entre
+# los dos. Con los dos pools compitiendo por los mismos lugares gana el que tiene 14 veces más
+# fragmentos: «algo sobre impuesto al valor agregado» devolvía el impuesto al azúcar de 1871 y
+# el investigador se quedaba con dos citas para toda la respuesta.
+#
+# Pesar la doctrina por encima resuelve eso y rompe otra cosa: **los suplementos son dueños de
+# materias enteras**. Medido con 16 consultas etiquetadas, cada una con el documento que la
+# responde, contando si ese documento entra al top-k y cuántas citas propias queda leyendo:
+#
+#     estrategia          trae el documento    citas propias
+#     como estaba                  16/16               190
+#     peso 70/30                    7/16               249   ← pierde habeas corpus,
+#     peso 60/40                   13/16               232      movilidad jubilatoria,
+#     cuota 4+2 (k=6)              15/16               209      marcas y patentes, salud,
+#     cuota 3+3 (k=6)              15/16               178      libertad de expresión,
+#     cuota 6+2 (k=8)              15/16               269      ambiental y el interés
+#     cuota 4+4 (k=8)              16/16               235      superior del niño
+#     cuota 5+3 (k=8)              16/16               251   ←
+#
+# La cuota es lo único que da las dos cosas, porque reserva lugar para el pool chico sin que
+# el grande tenga que perder. 5+3 iguala la cobertura temática de como estaba —16 de 16— con
+# un tercio más de citas para citar.
+CUOTA_DOCTRINA = 5
+CUOTA_SENTENCIAS = 3
+# Ocho y no cuatro: una cita solo se puede publicar si está en un fragmento que el
+# investigador leyó, así que el top-k es el techo del material disponible.
+RESULTADOS_RECUPERADOS = CUOTA_DOCTRINA + CUOTA_SENTENCIAS
+PROPORCION_SENTENCIAS = CUOTA_SENTENCIAS / RESULTADOS_RECUPERADOS
 # Candidatos que aporta cada lado del ensamble antes de fusionar. Más altos que el
 # resultado final a propósito: la fusión elige mejor viendo más de cada uno.
 CANDIDATOS_POR_RETRIEVER = 10
-# Los dos lados pesan igual, y eso está medido: cada uno gana en un tipo de consulta
-# distinto. Con el vocabulario del corpus el léxico llega al 96% de precisión en el top-4 y
-# el vectorial al 74%; con la misma pregunta escrita como la escribiría alguien que no leyó
-# el corpus, se dan vuelta —50% contra 66%—.
+
+# Dentro de cada pool los dos lados pesan igual, y eso está medido: cada uno gana en un tipo
+# de consulta distinto. Con el vocabulario del corpus el léxico llega al 96% de precisión en
+# el top-4 y el vectorial al 74%; con la misma pregunta escrita como la escribiría alguien que
+# no leyó el corpus, se dan vuelta —50% contra 66%—.
 #
 # El ensamble en 0.5/0.5 queda en 88% y 59%: mejor que cada lado en el terreno del otro. Desde
 # 0.6 hacia el léxico **colapsa al léxico puro** (96% y 50%, los mismos números que sin
@@ -43,7 +78,7 @@ CANDIDATOS_POR_RETRIEVER = 10
 # buscador público. Se mide con `scripts.medir_lexico`.
 PESO_LEXICO = 0.5
 PESO_VECTORIAL = 0.5
-MAXIMO_RESULTADOS = 8
+MAXIMO_RESULTADOS = 10
 LARGO_MAXIMO_FRAGMENTO = 900    # caracteres por fragmento en la observación
 # Un fragmento por debajo de esto es un número de página o un renglón de índice.
 LARGO_MINIMO_FRAGMENTO = 120
@@ -60,9 +95,6 @@ PROPORCION_MINIMA_LETRAS = 0.40
 # meseta, que es donde conviene pararse cuando el corpus todavía puede crecer.
 PESOS_BM25 = (1.0, 0.5, 3.0)
 LARGO_MAXIMO_CONSULTA = 500
-# Subsecciones que se sugieren cuando el investigador nombra una que no existe. Con un
-# corpus de ~800 subsecciones, devolver la lista entera le consume el contexto.
-SUGERENCIAS_SUBSECCION = 8
 
 # --- El orquestador: supervisor, especialistas y sus frenos ---
 MAXIMO_INTENTOS = 3                 # veces que un especialista puede tener que rehacer su
@@ -71,6 +103,28 @@ MAXIMO_INTENTOS = 3                 # veces que un especialista puede tener que 
                                     # redactor), antes de cerrar con lo que haya
 CITAS_MINIMAS = 2                   # por debajo, la respuesta se considera sin fundar
 CITAS_HOLGADAS = 3                  # por debajo, la respuesta queda señalada en el registro
+
+# --- El respaldo textual de cada cita ---
+# Que la cita exista y que el investigador la haya leído son dos cosas comprobadas. Falta la
+# tercera: **que el fragmento diga lo que la afirmación dice que dice**. El investigador copia
+# el pasaje que la sostiene y esto lo busca en el texto que se le sirvió, sin modelo de por
+# medio, igual que el resto del verificador.
+#
+# La comparación es tolerante porque el modelo retipea: se normalizan espacios, tildes y caja,
+# y si la copia no es literal se mide qué proporción de las palabras del pasaje aparece en el
+# fragmento, en orden. Una palabra cambiada sobre quince deja 0,93.
+TOLERANCIA_RESPALDO = 0.85
+# Y se pide además un tramo seguido, porque la cobertura sola se llena con «la», «de» y «que»
+# desparramadas: cuatro palabras consecutivas ya son una frase y no una coincidencia.
+PALABRAS_SEGUIDAS_RESPALDO = 4
+# Un pasaje corto matchea cualquier cosa. Cuarenta caracteres son unas seis palabras: lo
+# mínimo para que el match diga algo.
+LARGO_MINIMO_RESPALDO = 40
+# Si el respaldo veta o solo informa. Arrancó informando, porque un veto que rechaza de más
+# deja al buscador mudo y eso es peor que el problema que arregla. **Medido sobre 20 consultas
+# reales antes de encenderlo**: 100 citas verificadas, 1 sin respaldo. El veto toca 1 consulta
+# de 20, muy por debajo del 20% que se había fijado como techo para dejarlo apagado.
+RESPALDO_OBLIGATORIO = True
 LIMITE_RECURSION_AGENTE = 12        # supersteps del ReAct interno del investigador
 LIMITE_RECURSION_REDACTOR = 12      # supersteps del ReAct interno del redactor: una vuelta
                                     # por cita para pedir su link, más la redacción final

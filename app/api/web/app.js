@@ -155,7 +155,7 @@ function paso({ fase, detalle }) {
 // insertaban en crudo son seguros —`fallo` sale de `normalizar_cita`, que devuelve dígitos, y
 // `url` sale del padrón, que construye la ingesta—, pero eso es un invariante que vive en
 // otros dos módulos: con nodos, la página no depende de que nadie lo rompa.
-function pintarCita({ fallo, url, subseccion, afirmacion }) {
+function pintarCita({ fallo, url, subseccion, afirmacion, respaldo }) {
   respuesta.hidden = false;
   const div = document.createElement("div");
   div.className = "cita";
@@ -176,6 +176,15 @@ function pintarCita({ fallo, url, subseccion, afirmacion }) {
     span.className = "contexto";
     span.textContent = contexto;
     div.appendChild(span);
+  }
+  // El pasaje del corpus, que es lo que el verificador comprobó. Va debajo de la afirmación
+  // justamente para que se lean juntos: el sistema garantiza que esta oración está en el
+  // documento, y el salto de la oración a la afirmación lo juzga quien lee.
+  if (respaldo) {
+    const cita = document.createElement("blockquote");
+    cita.className = "respaldo";
+    cita.textContent = respaldo;
+    div.appendChild(cita);
   }
   citas.appendChild(div);
 }

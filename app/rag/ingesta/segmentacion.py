@@ -4,8 +4,8 @@ Dos decisiones viven acá. La primera es cómo se corta el texto: el mismo split
 que el cuadernillo, con los separadores que un PDF sí tiene (los `---` del markdown no
 existen en un PDF).
 
-La segunda son las subsecciones. Un suplemento de 862 páginas son ~1.500 fragmentos; con una
-sola subsección, `fallos_citados` devolvería una lista de miles de citas y dejaría de servir.
+La segunda son las subsecciones. Son la procedencia que acompaña a cada cita en la respuesta,
+y con una sola para un suplemento de 862 páginas esa procedencia no diría nada.
 Se resuelven en cascada —outline del PDF, títulos por tipografía, bloques de páginas— y el
 método elegido queda anotado en la ficha del documento, así se puede mirar cuál cayó al
 fallback.
@@ -132,8 +132,8 @@ def fragmentar(documento: Documento, ficha: dict) -> tuple[list[dict], str]:
 
     Devuelve también el método de subsección elegido, para la ficha.
 
-    `citas_urls` lleva solo las citas que aparecen en ESE fragmento: es lo que hace que
-    `fallos_citados` responda por subsección en vez de por documento. Se cruzan las dos
+    `citas_urls` lleva solo las citas que aparecen en ESE fragmento, y ese recorte es lo que
+    sostiene la regla de que el investigador solo cite lo que leyó. Se cruzan las dos
     fuentes —las citas que el texto del fragmento escribe y los links que el documento
     enlaza—, así una cita que el PDF no enlazó entra igual, con URL vacía, y
     `completar_links_faltantes` le arma la oficial.

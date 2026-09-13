@@ -45,13 +45,25 @@ class Cita(BaseModel):
     Es el objeto que el verificador contrasta contra los metadatos del corpus. Separar la
     cita de la síntesis es lo que permite comprobarlas una por una, en vez de leer un párrafo
     y confiar.
+
+    **La subsección no está acá a propósito.** La escribía el modelo y el verificador la
+    rechazaba cuando no resolvía contra el índice: la consulta insignia gastó sus tres
+    correcciones y 40 segundos en eso, con las trece citas verificadas y ninguna inventada.
+    Ahora sale del registro de lo recuperado, que sabe qué fragmento trajo cada fallo. Un dato
+    que el sistema puede deducir es un dato que el modelo no tiene por qué transcribir.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     fallo: str = Field(min_length=3, max_length=120, description='Ej: "Fallos: 311:2437".')
-    subseccion: str = Field(min_length=3, max_length=200, description="Subsección del cuadernillo de donde sale.")
     afirmacion: str = Field(min_length=10, max_length=400, description="Qué se sostiene con ese fallo.")
+    # Vacío por defecto y no obligatorio en el esquema: un respaldo que falta tiene que volver
+    # como rechazo corregible del verificador y no como una salida que no valida, que corta la
+    # corrida entera sin decirle al investigador qué arreglar.
+    respaldo: str = Field(
+        default="", max_length=600,
+        description=("El pasaje del fragmento que sostiene la afirmación, copiado tal cual. "
+                     "Al menos una oración completa."))
 
 
 class Investigacion(BaseModel):
@@ -83,6 +95,18 @@ class Verificacion(BaseModel):
 
     verificadas: Tuple[str, ...] = Field(default_factory=tuple, description="Fallos que existen en el corpus.")
     inexistentes: Tuple[str, ...] = Field(default_factory=tuple, description="Fallos que el investigador inventó o citó mal.")
+    # Existir y venir al caso son dos cosas distintas, y hasta ahora solo se comprobaba la
+    # primera. El corpus tiene 9.005 citas reales: una respuesta sobre el IVA se sostuvo en
+    # cuatro fallos anteriores a que el IVA existiera, todos ciertos y ninguno leído.
+    impertinentes: Tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Fallos que existen en el corpus y no salieron de ningún fragmento leído.")
+    # La tercera comprobación, que vive apagada hasta que la medición diga que puede vetar.
+    # Con `RESPALDO_OBLIGATORIO` en falso se calcula igual y viaja al registro: para decidir si
+    # un control puede rechazar hace falta saber cuánto rechazaría.
+    sin_respaldo: Tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Fallos cuyo pasaje de respaldo no aparece en ningún fragmento leído.")
     aprobado: bool
     observaciones: Tuple[str, ...] = Field(default_factory=tuple)
 
@@ -175,6 +199,21 @@ def acumular(actual, nuevo):
     return anteriores + agregados
 
 
+def fusionar(actual, nuevo):
+    """Reducer que fusiona diccionarios conservando la primera procedencia de cada clave.
+
+    El registro de lo recuperado crece a lo largo de la corrida: el investigador puede buscar
+    varias veces, y una corrección lo hace buscar de nuevo. Lo que se acumula es qué fragmento
+    trajo cada fallo, y la primera respuesta es la que vale: un fallo puede aparecer después en
+    otro fragmento sin que eso cambie de dónde salió cuando el investigador lo leyó.
+    """
+    if not nuevo:
+        return dict(actual or {})
+    fusionado = dict(nuevo)
+    fusionado.update(actual or {})
+    return fusionado
+
+
 class EstadoOrquestador(MessagesState):
     """Estado global del grafo.
 
@@ -200,6 +239,15 @@ class EstadoOrquestador(MessagesState):
       en círculos sin que nadie rechace nada no lo tocaría nunca.
     - `completado`: el veredicto explícito que lee la arista de cierre. Que el nodo escriba
       su conclusión y la arista solo la lea evita que la condición tenga que re-deducirla.
+    - `recuperado`: qué fragmento trajo cada fallo, `"tomo:pagina" -> subsección`. Lo escribe
+      la herramienta de búsqueda mientras el investigador trabaja, y acumula durante toda la
+      corrida. **Es lo que separa una cita pertinente de una cita meramente cierta**: el
+      verificador rechaza el fallo que existe en el corpus y no salió de ningún fragmento
+      leído, y la subsección de cada cita se deduce de acá en vez de escribirla el modelo.
+    - `textos_leidos`: el texto de cada fragmento que la búsqueda sirvió, `huella -> texto`,
+      exactamente como el investigador lo vio. Es contra esto que se comprueba el pasaje de
+      respaldo de cada cita. Va aparte de `recuperado` porque responde otra pregunta: uno dice
+      qué fallos estuvieron disponibles, y este, qué decía el texto que los traía.
     """
 
     consulta: str
@@ -207,6 +255,8 @@ class EstadoOrquestador(MessagesState):
     investigaciones: Annotated[Tuple[Investigacion, ...], acumular]
     verificaciones: Annotated[Tuple[Verificacion, ...], acumular]
     redacciones: Annotated[Tuple[Redaccion, ...], acumular]
+    recuperado: Annotated[dict, fusionar]
+    textos_leidos: Annotated[dict, fusionar]
     intentos: int
     vueltas: int
     completado: bool
@@ -241,6 +291,8 @@ class Calidad(NamedTuple):
     citas_propuestas: int
     citas_verificadas: int
     citas_inexistentes: int
+    citas_impertinentes: int
+    citas_sin_respaldo: int
     cobertura: float
     citas_en_el_texto: int
     intentos: int
@@ -264,6 +316,11 @@ def evaluar_calidad(estado: EstadoOrquestador, holgadas: int,
 
     - **El investigador citó fallos que no existen** en algún momento del recorrido. Las
       corrigió, y el material lo llevó a inventar.
+    - **Citó fallos ciertos que no había leído.** El recorrido los rechazó, y saber cuántos
+      hubo es saber cuánto empuja el material hacia la cita ajena.
+    - **Alguna cita quedó sin un pasaje que la respalde.** Mientras `RESPALDO_OBLIGATORIO`
+      esté apagado esta señal no bloquea nada, y es justamente para eso que se cuenta: la
+      decisión de encenderla necesita saber cuánto rechazaría.
     - **La respuesta se apoya en pocas citas.** Cumple el mínimo, sin margen.
     - **Se agotaron los intentos de corrección.** El sistema cerró con lo que tenía.
 
@@ -275,10 +332,14 @@ def evaluar_calidad(estado: EstadoOrquestador, holgadas: int,
 
     verificadas = sum(len(v.verificadas) for v in verificaciones)
     inexistentes = sum(len(v.inexistentes) for v in verificaciones)
+    impertinentes = sum(len(v.impertinentes) for v in verificaciones)
+    # Solo la vigente: las anteriores fueron rechazadas y sus citas ya no están en la
+    # respuesta, así que contarlas mediría un texto que nadie va a leer.
+    sin_respaldo = len(verificaciones[-1].sin_respaldo) if verificaciones else 0
     # Las tres cuentan lo mismo: los fallos que el verificador juzgó en todo el recorrido.
     # Leer las propuestas de la última investigación las ponía en otra escala, y el registro
     # llegaba a decir "2 propuestas, 3 verificadas".
-    propuestas = verificadas + inexistentes
+    propuestas = verificadas + inexistentes + impertinentes
     cobertura = verificadas / propuestas if propuestas else 0.0
     en_el_texto = len(redaccion.citas_usadas) if redaccion else 0
     intentos = estado.get("intentos", 0)
@@ -294,6 +355,14 @@ def evaluar_calidad(estado: EstadoOrquestador, holgadas: int,
             f"la respuesta se apoya en {en_el_texto} citas, por debajo de las {holgadas} "
             f"que dan margen"
         )
+    if impertinentes:
+        motivos.append(
+            f"el investigador citó {impertinentes} fallos ciertos que no había leído"
+        )
+    if sin_respaldo:
+        motivos.append(
+            f"{sin_respaldo} cita(s) quedaron sin un pasaje del corpus que las respalde"
+        )
     if intentos >= tope_intentos:
         motivos.append(f"se agotaron los {tope_intentos} intentos de corrección")
 
@@ -301,6 +370,8 @@ def evaluar_calidad(estado: EstadoOrquestador, holgadas: int,
         citas_propuestas=propuestas,
         citas_verificadas=verificadas,
         citas_inexistentes=inexistentes,
+        citas_impertinentes=impertinentes,
+        citas_sin_respaldo=sin_respaldo,
         cobertura=cobertura,
         citas_en_el_texto=en_el_texto,
         intentos=intentos,

@@ -1,9 +1,15 @@
-"""Agente de investigación: arma una síntesis con sus citas encadenando dos herramientas.
+"""Agente de investigación: arma una síntesis con las citas de lo que leyó.
 
-`buscar_doctrina` trae la doctrina y lista los nombres de subsección; `fallos_citados` devuelve,
-para cada una, la lista autorizada de fallos. El prompt pide ese orden y nada en los datos lo
-fuerza: los fragmentos ya traen números de fallo, así que el agente podría citar sin la segunda
-llamada. La garantía la sostiene el verificador, no el orden.
+Una sola herramienta, `buscar_doctrina`, que trae los fragmentos con los fallos que cada uno
+cita. **Ahí se terminan los fallos disponibles**: no hay ninguna otra herramienta que reparta
+citas, y la que había repartía las de una subsección entera —hasta 264 para un top-k que traía
+una— de donde salían las citas ciertas y ajenas al tema.
+
+La garantía no la sostiene el prompt. La herramienta anota qué fragmento trajo cada fallo y qué
+decía ese fragmento, y el verificador rechaza lo que no esté ahí: pedirle al modelo que cite
+bien es una instrucción, y comprobar de dónde salió cada cita es un hecho. Por eso además cada
+cita viene con el pasaje que la sostiene, copiado del fragmento —lo que se comprueba es el
+texto, no la intención—.
 
 Devuelve un `Investigacion` de Pydantic, con la síntesis y las citas en campos separados para
 que el verificador compruebe una por una.
@@ -30,20 +36,36 @@ jurisprudencia y los suplementos temáticos.
 Cómo trabajás:
 1. Buscá la doctrina con `buscar_doctrina`. Si la consulta abarca más de un tema, hacé una \
 búsqueda por tema.
-2. Traé las citas con `fallos_citados`, usando los nombres de subsección que \
-`buscar_doctrina` lista al final. Los fallos que menciones tienen que salir de ahí.
-3. Escribí una síntesis que responda la consulta, y separá cada afirmación con su fallo.
+2. Leé los fragmentos. Cada uno viene con los fallos que cita, y al final está la lista \
+completa de los que podés usar.
+3. Escribí una síntesis que responda la consulta, y separá cada afirmación con su fallo. \
+**Para cada cita, copiá en `respaldo` la oración del fragmento que sostiene esa afirmación**, \
+tal como está escrita. Copiala, no la parafrasees: lo que respalda es el texto, y una \
+reescritura no se puede comprobar contra nada.
 
 Reglas que no se negocian:
-- Nunca inventes un número de fallo. Si no lo trajo una herramienta, no existe.
-- Cada cita tiene que decir de qué subsección salió.
+- **Solo podés citar fallos que aparezcan en los resultados de tus búsquedas.** No hay otra \
+fuente: ni tu memoria, ni un número que deduzcas, ni un fallo que sepas que existe.
+- Cada afirmación tiene que salir del fragmento que trae ese fallo. Un fallo que apareció en \
+una búsqueda sobre otro tema no sirve para sostener esta afirmación.
+- Si no podés copiar una oración que sostenga la afirmación, esa afirmación no está en el \
+corpus: sacala.
+- Si lo que encontraste no responde la consulta, buscá de nuevo con otros términos. Si \
+después de buscar no hay material, decilo en la síntesis y no cites. **Decir que el corpus no \
+trata el tema es una respuesta correcta**; forzar citas que no lo sostienen, no.
 - Si te devuelven una investigación rechazada, corregí exactamente lo que se te señala: \
-sacá las citas inexistentes y buscá respaldo real para esas afirmaciones, o quitá la \
+sacá las citas señaladas y buscá respaldo real para esas afirmaciones, o quitá la \
 afirmación que no podés sostener."""
 
 
-def construir_investigador():
-    """Arma el agente ReAct de investigación.
+def construir_investigador(lectura: herramientas.Lectura):
+    """Arma el agente ReAct de investigación, con su herramienta atada a `lectura`.
+
+    La lectura se llena mientras el agente busca, y queda en el estado para que el verificador
+    sepa de qué fragmento salió cada fallo y qué decía ese fragmento. Es por corrida y no
+    global: dos consultas simultáneas en el mismo proceso mezclarían lo que leyó cada una, y
+    los chequeos de pertinencia y de respaldo pasarían a aprobar sobre textos que este
+    investigador nunca vio.
 
     `response_format` obliga a que la salida final sea un `Investigacion` válido: si el
     modelo devuelve algo que no cumple el esquema, falla acá y no tres nodos más adelante,
@@ -52,7 +74,7 @@ def construir_investigador():
     modelo = crear_chat("investigador")
     return create_react_agent(
         model=modelo,
-        tools=herramientas.HERRAMIENTAS_INVESTIGACION,
+        tools=[herramientas.crear_buscar_doctrina(lectura)],
         prompt=PROMPT,
         response_format=Investigacion,
     )
@@ -70,11 +92,16 @@ async def investigador_node(state: EstadoOrquestador) -> dict:
         pedido += (
             "\n\nTu investigación anterior fue rechazada por el verificador de citas.\n"
             f"Fallos que NO existen en el corpus: {', '.join(rechazo.inexistentes) or '(ninguno)'}\n"
+            "Fallos que existen pero no salieron de ningún fragmento que leíste: "
+            f"{', '.join(rechazo.impertinentes) or '(ninguno)'}\n"
             "Observaciones:\n- " + "\n- ".join(rechazo.observaciones)
         )
 
+    # La lectura se crea acá y viaja al estado: lo que este investigador leyó es lo único que
+    # sus citas pueden invocar y lo único contra lo que se comprueban sus pasajes.
+    lectura = herramientas.Lectura()
     try:
-        salida = await construir_investigador().ainvoke(
+        salida = await construir_investigador(lectura).ainvoke(
             {"messages": [("user", pedido)]},
             {"recursion_limit": cfg.LIMITE_RECURSION_AGENTE},
         )
@@ -91,12 +118,14 @@ async def investigador_node(state: EstadoOrquestador) -> dict:
     llamadas = herramientas.contar_llamadas(salida.get("messages") or [])
     return {
         "investigaciones": (investigacion,),
+        "recuperado": lectura.citas,
+        "textos_leidos": lectura.textos,
         "messages": [
             (
                 "assistant",
                 f"[investigador] {llamadas} llamadas a herramientas · "
-                f"{len(investigacion.citas)} citas sobre "
-                f"{len(investigacion.subsecciones)} subsecciones.",
+                f"{len(investigacion.citas)} citas sobre {len(lectura.citas)} fallos en "
+                f"{len(lectura.textos)} fragmentos leídos.",
             )
         ],
     }

@@ -68,7 +68,7 @@ class TestSubtituloVigente:
 
     def test_antes_del_primer_subtitulo_vale_el_primero(self):
         # El contenido bajo el título principal pertenece a la primera subsección: dejarlo
-        # sin valor rompería `fallos_citados`, que busca por ese nombre.
+        # sin valor deja la cita sin procedencia que mostrarle al lector.
         assert ingesta._subtitulo_vigente(DOCUMENTO, 0) == "6.2.7 Exceso ritual manifiesto"
 
     def test_un_documento_sin_subtitulos_devuelve_vacio(self):

@@ -118,6 +118,21 @@ button:disabled { background: var(--tinta-suave); cursor: default; }
   margin-top: .15rem;
 }
 
+/* El pasaje del documento. Se marca como cita textual porque lo es: son las palabras de la
+   Secretaría, y el sistema comprobó que estén en el fragmento del que salió el fallo. */
+.cita .respaldo {
+  margin: .45rem 0 0;
+  padding: .1rem 0 .1rem .8rem;
+  border-left: 2px solid var(--linea);
+  font-size: .88rem;
+  line-height: 1.5;
+  color: var(--tinta-suave);
+  quotes: "«" "»";
+}
+
+.cita .respaldo::before { content: open-quote; }
+.cita .respaldo::after { content: close-quote; }
+
 .cierre {
   margin-top: 1.5rem;
   font-size: .85rem;

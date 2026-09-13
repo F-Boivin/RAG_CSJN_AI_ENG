@@ -49,13 +49,16 @@ class RecuperadorLexico(BaseRetriever):
 
     lexico: Lexico
     k: int = cfg.RESULTADOS_RECUPERADOS
+    # Con `fuentes`, este recuperador ve solo un pool del corpus. Vacío, ve el corpus entero.
+    fuentes: tuple[str, ...] = ()
 
     async def _aget_relevant_documents(
         self, query: str, *, run_manager: AsyncCallbackManagerForRetrieverRun
     ) -> list[Document]:
         """Los `k` fragmentos que mejor matchean la consulta por término."""
-        with span_de_recuperacion("fts5_lexico", query, k=self.k) as span:
-            filas = await asyncio.to_thread(self.lexico.buscar, query, self.k)
+        with span_de_recuperacion("fts5_lexico", query, k=self.k,
+                                  pool="+".join(self.fuentes) or "corpus") as span:
+            filas = await asyncio.to_thread(self.lexico.buscar, query, self.k, self.fuentes)
             documentos = [
                 Document(page_content=texto, metadata={**metadata, "id": ident})
                 for ident, texto, metadata in filas

@@ -9,6 +9,9 @@ Es un nodo del grafo y no una herramienta del supervisor: verificar es un paso o
 recorrido, y una herramienta la invoca quien quiere.
 """
 
+import unicodedata
+from difflib import SequenceMatcher
+
 import app.nucleo.constantes as cfg
 import app.nucleo.mensajes as msj
 import app.rag.herramientas as herramientas
@@ -22,18 +25,68 @@ async def verificador_node(state: EstadoOrquestador) -> dict:
     if investigacion is None:
         raise ErrorDeAgente(msj.ERROR_VERIFICADOR_SIN_INVESTIGACION)
 
-    veredicto = await verificar(investigacion)
+    veredicto = await verificar(investigacion, state.get("recuperado") or {},
+                                state.get("textos_leidos") or {})
+    propuestas = (len(veredicto.verificadas) + len(veredicto.inexistentes)
+                  + len(veredicto.impertinentes))
     return {
         "verificaciones": (veredicto,),
         "messages": [
             (
                 "assistant",
-                f"[verificador] {len(veredicto.verificadas)} de "
-                f"{len(veredicto.verificadas) + len(veredicto.inexistentes)} citas existen en el corpus. "
+                f"[verificador] {len(veredicto.verificadas)} de {propuestas} citas existen "
+                f"en el corpus y salieron de lo que el investigador leyó. "
                 f"{'APROBADO' if veredicto.aprobado else 'RECHAZADO'}.",
             )
         ],
     }
+
+
+def _aplanar(texto: str) -> str:
+    """Deja el texto en lo que sobrevive a que alguien lo vuelva a tipear.
+
+    Espacios colapsados, tildes afuera y todo en minúscula. El PDF corta palabras con guión,
+    parte las oraciones en dos renglones y mete el número de página en el medio; el modelo, al
+    copiar el pasaje, arregla algunas de esas cosas y no otras. Comparar sobre esta forma es
+    comparar lo que las dos versiones tienen en común de verdad.
+    """
+    plano = unicodedata.normalize("NFKD", (texto or "").lower())
+    plano = "".join(letra for letra in plano if not unicodedata.combining(letra))
+    return " ".join(plano.split())
+
+
+def respaldado(respaldo: str, textos) -> bool:
+    """Si ese pasaje aparece en alguno de los fragmentos que el investigador leyó.
+
+    Primero la contención literal, que es el caso normal. Cuando el retipeo la rompe, se
+    comparan **listas de palabras** y no cadenas de caracteres: una palabra cambiada en el
+    medio parte el bloque contiguo en dos mitades, y medir contra la más larga daría por no
+    respaldado un pasaje que está casi entero. Por palabras, esa misma copia conserva 14 de 15.
+
+    Dos condiciones, y las dos hacen falta. **La cobertura** —qué proporción de las palabras
+    del pasaje aparece, en orden, en el fragmento— es la que mide el parecido. **El tramo
+    contiguo más largo** es la que impide que un texto jurídico cualquiera respalde cualquier
+    cosa: sin ella, «la», «de», «que» y «el» desparramadas suman cobertura sin que haya una
+    sola frase en común.
+
+    Se pide además un largo mínimo, porque un pasaje de tres palabras aparece en cualquier
+    lado y darlo por respaldado sería firmar un cheque en blanco.
+    """
+    aguja = _aplanar(respaldo)
+    if len(aguja) < cfg.LARGO_MINIMO_RESPALDO:
+        return False
+    palabras = aguja.split()
+    for texto in textos:
+        pajar = _aplanar(texto)
+        if aguja in pajar:
+            return True
+        bloques = SequenceMatcher(
+            None, palabras, pajar.split(), autojunk=False).get_matching_blocks()
+        cobertura = sum(b.size for b in bloques) / len(palabras)
+        seguido = max((b.size for b in bloques), default=0)
+        if cobertura >= cfg.TOLERANCIA_RESPALDO and seguido >= cfg.PALABRAS_SEGUIDAS_RESPALDO:
+            return True
+    return False
 
 
 def citas_distintas(investigacion: Investigacion) -> list[str]:
@@ -58,11 +111,23 @@ def citas_distintas(investigacion: Investigacion) -> list[str]:
     return list(distintas.values())
 
 
-async def verificar(investigacion: Investigacion) -> Verificacion:
+async def verificar(investigacion: Investigacion,
+                    recuperado: dict[str, str] | None = None,
+                    textos: dict[str, str] | None = None) -> Verificacion:
     """Devuelve el veredicto sobre una investigación.
+
+    Dos comprobaciones y no una. **Que la cita exista** se contrasta contra el padrón, que son
+    las 9.005 citas del corpus. **Que venga al caso** se contrasta contra `recuperado`, el
+    registro de qué fragmento trajo cada fallo durante esta corrida.
+
+    La segunda faltaba, y su ausencia es lo que dejó publicar una respuesta sobre el IVA
+    sostenida en cuatro fallos anteriores a que el IVA existiera: los cuatro estaban en el
+    padrón, ninguno en un texto que el investigador hubiera leído.
 
     Separada del nodo para poder probarla sola, sin montar el grafo.
     """
+    recuperado = recuperado or {}
+    leidos = list((textos or {}).values())
     if not investigacion.citas:
         # Una síntesis sin citas es inverificable, que es distinto de tener las citas mal:
         # se rechaza diciendo exactamente eso.
@@ -106,14 +171,29 @@ async def verificar(investigacion: Investigacion) -> Verificacion:
                 detalle=f"la respuesta no cubre {len(faltantes)} de {len(a_comprobar)} citas"
             )
         )
-    verificadas = tuple(c for c in afirmadas if veredicto.get(c))
+    # Existir y venir al caso se separan acá, y el orden importa: una cita que no existe es un
+    # problema distinto de una que existe y el investigador no leyó, y cada una necesita su
+    # observación para que la corrección sepa qué arreglar.
+    def leyo(cita: str) -> bool:
+        return herramientas.normalizar_cita(cita) in recuperado
+
+    verificadas = tuple(c for c in afirmadas if veredicto.get(c) and leyo(c))
     inexistentes = tuple(c for c in afirmadas if not veredicto.get(c))
+    impertinentes = tuple(c for c in afirmadas if veredicto.get(c) and not leyo(c))
     sueltas_inventadas = tuple(c for c in de_la_sintesis if not veredicto.get(c))
+    sueltas_ajenas = tuple(c for c in de_la_sintesis if veredicto.get(c) and not leyo(c))
 
     observaciones = [
         f"'{cita.fallo}' no figura entre las citas del corpus; sostiene: {cita.afirmacion[:90]}"
         for cita in investigacion.citas
         if cita.fallo in inexistentes
+    ]
+    observaciones += [
+        f"'{cita.fallo}' existe en el corpus pero no salio de ningun fragmento que hayas "
+        f"leido, asi que no podes sostener con el: {cita.afirmacion[:90]}. Busca de nuevo, o "
+        f"sacá la afirmacion"
+        for cita in investigacion.citas
+        if cita.fallo in impertinentes
     ]
     for cita in amontonadas:
         observaciones.append(
@@ -130,26 +210,40 @@ async def verificar(investigacion: Investigacion) -> Verificacion:
             f"la sintesis menciona el fallo '{cita}', que no figura en el corpus: sacalo del "
             f"texto o reemplazalo por uno real"
         )
-
-    # Atribuir una cita cierta a una subseccion que no existe tambien es fabricar: la
-    # cita queda sin procedencia comprobable, que es justo lo que el sistema promete.
-    try:
-        inventadas = sorted({
-            c.subseccion for c in investigacion.citas
-            if c.subseccion and not herramientas.subseccion_existe(c.subseccion)
-        })
-    except Exception as exc:
-        # Sin este except una caida de la base aca sale cruda y saltea la traduccion que el
-        # resto de la funcion se toma el trabajo de hacer.
-        raise ErrorDeAgente(msj.ERROR_VERIFICADOR.format(detalle=f"{type(exc).__name__}: {exc}")) from exc
-    for nombre in inventadas:
+    for cita in sueltas_ajenas:
         observaciones.append(
-            f"la subseccion '{nombre}' no existe en el corpus: usa el nombre exacto que "
-            f"devuelve buscar_doctrina, con su numeracion"
+            f"la sintesis menciona el fallo '{cita}', que existe en el corpus y no salio de "
+            f"ningun fragmento que hayas leido: sacalo del texto"
         )
 
-    aprobado = not (inexistentes or inventadas or amontonadas or sin_numero
-                    or sueltas_inventadas)
+    # La tercera comprobacion: que el fragmento diga lo que la afirmacion dice que dice. Se
+    # mira solo sobre las citas que ya pasaron las dos anteriores, porque acusar de mal
+    # respaldada a una cita que ademas no existe es amontonar dos problemas en un mensaje.
+    # Alcanza con que uno de sus pasajes resista: un fallo puede estar citado en dos lugares
+    # del corpus, y exigir que todas sus afirmaciones salgan del mismo fragmento seria pedir
+    # algo que el corpus no siempre permite.
+    sin_respaldo = tuple(
+        c for c in verificadas
+        if not any(respaldado(r, leidos) for r in _respaldos_de(investigacion, c))
+    )
+    if cfg.RESPALDO_OBLIGATORIO:
+        # **Sale de `verificadas`, y no alcanza con rechazar la tanda.** Agotadas las tres
+        # correcciones, el sistema publica sobre el subconjunto verificado en vez de tirar
+        # todo: una cita que solo baja `aprobado` vuelve igual al redactor en esa ultima
+        # vuelta. Sacarla de la lista es lo que la deja afuera de la respuesta —y lo que hace
+        # que una consulta sin nada respaldado termine en «no hay base suficiente»—, que es
+        # el mismo camino que ya siguen las citas ajenas al tema.
+        verificadas = tuple(c for c in verificadas if c not in sin_respaldo)
+    for cita in sin_respaldo:
+        afirmacion = next((c.afirmacion for c in investigacion.citas if c.fallo == cita), "")
+        observaciones.append(
+            f"'{cita}' no viene con un pasaje del fragmento que lo respalde: copia la "
+            f"oracion del texto que sostiene «{afirmacion[:70]}», tal como esta escrita"
+        )
+
+    aprobado = not (inexistentes or impertinentes or amontonadas or sin_numero
+                    or sueltas_inventadas or sueltas_ajenas
+                    or (sin_respaldo and cfg.RESPALDO_OBLIGATORIO))
     if aprobado and len(verificadas) < cfg.CITAS_MINIMAS:
         # Todas ciertas pero pocas: la respuesta es correcta y floja. Es un rechazo
         # distinto del anterior, y el investigador tiene que poder distinguirlos.
@@ -162,6 +256,21 @@ async def verificar(investigacion: Investigacion) -> Verificacion:
     return Verificacion(
         verificadas=verificadas,
         inexistentes=inexistentes,
+        impertinentes=impertinentes,
+        sin_respaldo=sin_respaldo,
         aprobado=aprobado,
         observaciones=tuple(observaciones),
     )
+
+
+def _respaldos_de(investigacion: Investigacion, fallo: str) -> list[str]:
+    """Los pasajes con los que la investigación sostiene ese fallo.
+
+    Varios, porque el mismo fallo puede sostener varias afirmaciones y cada una trae el suyo.
+    Se agrupan por tomo y página, igual que en `citas_distintas`: la lista de verificadas
+    conserva la primera forma en que se escribió el fallo, y las demás pueden venir escritas
+    distinto.
+    """
+    clave = herramientas.normalizar_cita(fallo) or fallo
+    return [c.respaldo for c in investigacion.citas
+            if (herramientas.normalizar_cita(c.fallo) or c.fallo) == clave]

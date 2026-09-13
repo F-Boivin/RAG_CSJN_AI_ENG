@@ -15,7 +15,8 @@ from app.grafo.estado import (
     Verificacion,
     huella_material,
 )
-from tests.dobles import FALLOS, SUBSECCION, citas, estado_inicial
+from tests.dobles import (FALLOS, SUBSECCION, citas, estado_inicial, leido,
+                          textos_leidos)
 
 _LOCALES = {"127.0.0.1", "::1", "localhost", "0.0.0.0"}
 _conectar_real = socket.socket.connect
@@ -81,12 +82,18 @@ def redaccion(investigacion: Investigacion, verificacion: Verificacion) -> Redac
 
 @pytest.fixture
 def estado_terminado(estado_vacio, investigacion, verificacion, redaccion) -> dict:
-    """El estado de un trabajo con las tres etapas hechas y nada pendiente."""
+    """El estado de un trabajo con las tres etapas hechas y nada pendiente.
+
+    Lleva el registro de lo leído, porque un trabajo terminado lo tiene: de ahí salen la
+    procedencia de cada cita y el texto contra el que se comprobó su pasaje.
+    """
     return {
         **estado_vacio,
         "investigaciones": (investigacion,),
         "verificaciones": (verificacion,),
         "redacciones": (redaccion,),
+        "recuperado": leido(3),
+        "textos_leidos": textos_leidos(),
     }
 
 

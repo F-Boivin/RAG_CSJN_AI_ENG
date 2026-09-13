@@ -14,11 +14,39 @@ Un equipo de cuatro agentes responde cada consulta, con un supervisor que decide
 |---|---|---|
 | `supervisor` | elige el próximo paso y deja asentado el motivo | sí, con salida estructurada |
 | `investigador` | busca doctrina en el corpus y arma una síntesis con sus citas | sí, ReAct |
-| `verificador` | contrasta cada cita contra el padrón del corpus | **no** |
+| `verificador` | contrasta cada cita contra el padrón, contra lo que el investigador leyó y contra el texto que la respalda | **no** |
 | `redactor` | escribe la respuesta usando solo lo verificado, con sus links | sí, ReAct |
 
 **El verificador es código.** Un fallo está en el padrón o no está, y eso se computa. Poner un
 modelo a juzgarlo mudaría la alucinación al que audita.
+
+**Y comprueba tres cosas, no una.**
+
+1. **Que la cita exista**, contra el padrón.
+2. **Que el investigador la haya leído**: que el fallo haya salido de un fragmento que la
+   búsqueda le sirvió en esta consulta.
+3. **Que el fragmento diga lo que la afirmación dice que dice**: cada cita viene con el pasaje
+   copiado del texto, y ese pasaje se busca en lo que se leyó.
+
+Las dos últimas faltaban. El corpus tiene 9.005 citas reales, así que «existe» es una barra
+baja: el buscador llegó a contestar sobre el impuesto al valor agregado con cuatro fallos
+anteriores a que el IVA existiera, los cuatro ciertos y ninguno leído. Se los había dado una
+herramienta que repartía las citas de una subsección entera —hasta 264 para una búsqueda cuyos
+fragmentos traían una—. Esa herramienta se retiró: el investigador tiene una sola, la búsqueda,
+que le devuelve cada fragmento con los fallos que ese fragmento cita y anota de dónde salió
+cada uno y qué decía.
+
+La tercera comprobación **se midió antes de dejarla rechazar**. Sobre 20 consultas reales: 100
+citas verificadas y 1 sin respaldo, o sea 1 consulta de 20. Con ese número a la vista pasó de
+señal a veto, y la cita sin respaldo sale de la lista de verificadas en vez de solo bajar el
+veredicto: agotadas las tres correcciones el sistema publica sobre lo verificado, y una cita
+que solo bajara `aprobado` volvería igual al redactor en esa última vuelta. Medido: así pasaba
+en 2 de 20 consultas.
+
+**Y esto es lo que le da al buscador la respuesta «no tengo esto».** Sin citas que sobrevivan
+las tres comprobaciones no se llega al mínimo, y el desenlace es sin base suficiente. Una
+consulta sobre jurisprudencia de la Corte en materia de criptomonedas —dentro del alcance, y
+fuera de lo que el corpus trata— termina ahí.
 
 **Ninguna URL sale de un modelo.** Los PDF de la Secretaría de Jurisprudencia traen los links
 oficiales embebidos, anclados al texto de cada cita, y de ahí sale el padrón. Cuando un
@@ -145,9 +173,10 @@ ruido, y cuesta **2 citas de las 9.005** del padrón.
 
 ### Las subsecciones
 
-Un suplemento de 862 páginas son ~1.500 fragmentos. Con una sola subsección, la herramienta que
-lista los fallos de una subsección devolvería miles de citas y dejaría de servir. Se resuelven
-en cascada, y el método elegido queda anotado en la ficha de cada documento:
+Un suplemento de 862 páginas son ~1.500 fragmentos. La subsección es la procedencia que el
+sistema muestra debajo de cada cita, y con una sola para todo el documento esa procedencia no
+diría nada. Se resuelven en cascada, y el método elegido queda anotado en la ficha de cada
+documento:
 
 Sobre el corpus real: 24 documentos se segmentaron por tipografía, 1 por outline y 99 por
 bloques de páginas. El fallback domina porque 75 de las 82 notas tienen 7 páginas de mediana
@@ -231,9 +260,9 @@ la ingesta** y se guardan en `lexico.sqlite3`. En consulta solo se leen.
 **Una conexión, un lock, y toda lectura pasa por el mismo camino.** La conexión se abre con
 `check_same_thread=False` porque las consultas corren en `asyncio.to_thread` y el hilo del pool
 cambia entre llamadas; esa bandera apaga el control de sqlite3 y deja la exclusión a cargo de
-quien la usa. Cuatro caminos entran desde hilos distintos —la búsqueda léxica, las citas de una
-subsección, las subsecciones parecidas y el padrón del verificador—, y con tres consultas
-concurrentes se pisaban. Reproducido sin llamar a ningún modelo: ocho hilos sobre esta clase
+quien la usa. Varios caminos entran desde hilos distintos —los cuatro recuperadores del
+ensamble, dos pools por dos lados, y el padrón que leen el verificador y la búsqueda—, y con
+tres consultas concurrentes se pisaban. Reproducido sin llamar a ningún modelo: ocho hilos sobre esta clase
 daban `IndexError: tuple index out of range` y `bad parameter or other API misuse` desde adentro
 de `fetchall`, y eso se llevaba puesta la consulta entera **después** de cobrarle el cupo al
 visitante. Serializar las lecturas no cuesta: cada una es de microsegundos contra un índice en

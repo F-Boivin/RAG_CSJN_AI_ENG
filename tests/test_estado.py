@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.grafo.estado import (
+    fusionar,
     DESTINOS,
     NODOS,
     Cita,
@@ -39,7 +40,7 @@ class TestInvariantesDeLosArtefactos:
 
     def test_una_cita_exige_afirmacion_sustantiva(self):
         with pytest.raises(ValidationError):
-            Cita(fallo="Fallos: 311:2437", subseccion="6.2.7 Exceso ritual", afirmacion="corto")
+            Cita(fallo="Fallos: 311:2437", afirmacion="corto")
 
     def test_una_sintesis_en_blanco_no_pasa_aunque_tenga_largo(self):
         with pytest.raises(ValidationError):
@@ -64,12 +65,47 @@ class TestInvariantesDeLosArtefactos:
 
     def test_un_campo_de_mas_se_rechaza(self):
         with pytest.raises(ValidationError):
-            Cita(fallo="Fallos: 311:2437", subseccion="6.2.7 Exceso ritual",
+            Cita(fallo="Fallos: 311:2437",
                  afirmacion="Una afirmacion suficientemente larga.", prioridad="alta")
+
+    def test_la_subseccion_ya_no_la_escribe_el_modelo(self):
+        # La deduce el registro de lo recuperado. Escribirla le costó a la consulta insignia
+        # sus tres correcciones, con las trece citas verificadas y ninguna inventada.
+        with pytest.raises(ValidationError):
+            Cita(fallo="Fallos: 311:2437", subseccion="6.2.7 Exceso ritual",
+                 afirmacion="Una afirmacion suficientemente larga.")
 
     def test_los_artefactos_son_inmutables(self, investigacion):
         with pytest.raises(ValidationError):
             investigacion.sintesis = "otra cosa"
+
+
+class TestReducerFusionar:
+    """El reducer del registro de lo recuperado."""
+
+    def test_suma_lo_que_trae_cada_busqueda(self):
+        assert fusionar({"311:2437": "A"}, {"315:1848": "B"}) == {
+            "311:2437": "A", "315:1848": "B"}
+
+    def test_la_primera_procedencia_es_la_que_vale(self):
+        # El mismo fallo puede volver a aparecer en otro fragmento sin que eso cambie de
+        # dónde lo leyó el investigador la primera vez.
+        assert fusionar({"311:2437": "A"}, {"311:2437": "B"}) == {"311:2437": "A"}
+
+    def test_nada_nuevo_deja_lo_que_habia(self):
+        assert fusionar({"311:2437": "A"}, None) == {"311:2437": "A"}
+        assert fusionar({"311:2437": "A"}, {}) == {"311:2437": "A"}
+
+    def test_el_estado_inicial_vacio_no_borra(self):
+        assert fusionar({}, {"311:2437": "A"}) == {"311:2437": "A"}
+        assert fusionar(None, {"311:2437": "A"}) == {"311:2437": "A"}
+
+    def test_no_muta_lo_que_recibe(self):
+        # El registro que devuelve el nodo sigue vivo en su closure: mutarlo acá sería
+        # escribirle al investigador de la vuelta anterior.
+        antes = {"311:2437": "A"}
+        fusionar(antes, {"315:1848": "B"})
+        assert antes == {"311:2437": "A"}
 
 
 class TestReducerAcumular:

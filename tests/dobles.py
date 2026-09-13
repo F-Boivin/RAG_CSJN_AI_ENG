@@ -14,26 +14,49 @@ from app.grafo.estado import (
     leer_situacion,
 )
 from app.nucleo import constantes as cfg
+from app.rag.citas import normalizar_cita
 
 CONSULTA = "¿Que es el exceso ritual manifiesto?"
 FALLOS = ("Fallos: 311:2437", "Fallos: 315:1848", "Fallos: 330:1228",
           "Fallos: 338:623", "Fallos: 349:306")
 SUBSECCION = "6.2.7 Exceso ritual manifiesto"
+# El texto del fragmento que los dobles dan por leido. Los respaldos de las citas salen de
+# aca, asi el verificador los encuentra con la compuerta encendida o apagada.
+TEXTO_LEIDO = (
+    "El exceso ritual manifiesto configura una causal autonoma de arbitrariedad cuando la "
+    "forma sacrifica la verdad juridica objetiva, y la sentencia deja de ser una derivacion "
+    "razonada del derecho vigente con arreglo a las circunstancias comprobadas de la causa."
+)
 
 
 def estado_inicial(consulta: str = CONSULTA) -> dict:
     """El estado con el que arranca el grafo."""
     return {"messages": [], "consulta": consulta, "siguiente": "investigador",
             "investigaciones": (), "verificaciones": (), "redacciones": (),
+            "recuperado": {}, "textos_leidos": {},
             "intentos": 0, "vueltas": 0, "completado": False}
 
 
 def citas(cantidad: int) -> tuple:
     """`cantidad` citas del padrón de prueba."""
     return tuple(
-        Cita(fallo=f, subseccion=SUBSECCION, afirmacion=f"El fallo {f} sostiene la doctrina.")
+        Cita(fallo=f, afirmacion=f"El fallo {f} sostiene la doctrina.", respaldo=TEXTO_LEIDO)
         for f in FALLOS[:cantidad]
     )
+
+
+def leido(cantidad: int) -> dict:
+    """El registro de lo recuperado que le corresponde a esas citas.
+
+    Sin esto el verificador las da por impertinentes, que es exactamente lo que tiene que
+    hacer: una cita que el investigador no leyó no se publica por más que exista.
+    """
+    return {normalizar_cita(f): SUBSECCION for f in FALLOS[:cantidad]}
+
+
+def textos_leidos() -> dict:
+    """El texto que los dobles dan por servido, contra el que se comprueban los respaldos."""
+    return {"huella": TEXTO_LEIDO}
 
 
 def investigador_falso(state):
@@ -42,6 +65,7 @@ def investigador_falso(state):
     return {"investigaciones": (Investigacion(
         sintesis="Sintesis de prueba sobre el exceso ritual manifiesto.",
         citas=citas(cantidad), subsecciones=(SUBSECCION,)),),
+        "recuperado": leido(cantidad), "textos_leidos": textos_leidos(),
         "messages": [("assistant", f"[investigador] doble · {cantidad} citas")]}
 
 
@@ -53,11 +77,12 @@ def investigador_inventor(state):
     """
     if len(state.get("investigaciones") or ()) >= 1:
         return investigador_falso(state)
-    inventada = Cita(fallo="Fallos: 999:9999", subseccion=SUBSECCION,
-                     afirmacion="Un fallo que el corpus no registra.")
+    inventada = Cita(fallo="Fallos: 999:9999",
+                     afirmacion="Un fallo que el corpus no registra.", respaldo=TEXTO_LEIDO)
     return {"investigaciones": (Investigacion(
         sintesis="Sintesis de prueba sobre el exceso ritual manifiesto.",
         citas=citas(2) + (inventada,), subsecciones=(SUBSECCION,)),),
+        "recuperado": leido(2), "textos_leidos": textos_leidos(),
         "messages": [("assistant", "[investigador] doble · con una cita inventada")]}
 
 
@@ -67,11 +92,12 @@ def investigador_terco(state):
     Es el caso que se midió contra el corpus real: el modelo cita un fallo de memoria y lo
     vuelve a proponer en cada corrección, aun leyendo que no existe.
     """
-    inventada = Cita(fallo="Fallos: 999:9999", subseccion=SUBSECCION,
+    inventada = Cita(fallo="Fallos: 999:9999", respaldo=TEXTO_LEIDO,
                      afirmacion="Un fallo que el corpus no registra, y que insiste en citar.")
     return {"investigaciones": (Investigacion(
         sintesis=f"Sintesis {len(state.get('investigaciones') or ()) + 1} con una cita terca.",
         citas=citas(2) + (inventada,), subsecciones=(SUBSECCION,)),),
+        "recuperado": leido(2), "textos_leidos": textos_leidos(),
         "messages": [("assistant", "[investigador] doble · terco")]}
 
 

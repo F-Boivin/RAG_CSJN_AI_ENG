@@ -112,8 +112,8 @@ def _subtitulo_vigente(texto_completo: str, posicion: int) -> str:
     Si ningun subtitulo precede a la posicion (el primer fragmento arranca antes
     del primer `###`), vale el primer subtitulo del documento: en este dataset el
     contenido bajo el titulo principal pertenece siempre a esa primera
-    subseccion, y `subseccion` es clave de busqueda de fallos_citados — un valor
-    vacio dejaria fragmentos (y sus citas) inalcanzables.
+    subseccion, y `subseccion` es la procedencia que el sistema le muestra al lector
+    debajo de cada cita — un valor vacio deja la cita sin decir de donde salio.
     """
     titulos = [(m.start(), m.group(1)) for m in PATRON_SUBTITULO.finditer(texto_completo)]
     vigente = ""
