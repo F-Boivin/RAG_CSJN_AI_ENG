@@ -1,8 +1,8 @@
 # RAG_CSJN_AI_ENG
 
-Buscador público de jurisprudencia de la Corte Suprema de Justicia de la Nación. Cualquiera
-entra, pregunta en lenguaje natural, y recibe una respuesta con citas de fallos reales y sus
-links oficiales.
+Buscador público sobre la doctrina de la Corte Suprema de Justicia de la Nación en materia de
+sentencias arbitrarias. Cualquiera entra, pregunta en lenguaje natural, y recibe una respuesta
+con citas de fallos reales y sus links oficiales.
 
 ---
 
@@ -29,8 +29,8 @@ modelo a juzgarlo mudaría la alucinación al que audita.
    copiada del texto, y un pasaje que no figura en ningún fragmento servido es un pasaje
    inventado.
 
-Las dos últimas faltaban. El corpus tiene 9.005 citas reales, así que «existe» es una barra
-baja: el buscador llegó a contestar sobre el impuesto al valor agregado con cuatro fallos
+Las dos últimas faltaban. Con el corpus que el buscador llegó a tener —9.005 citas reales—,
+«existe» era una barra baja: el buscador llegó a contestar sobre el impuesto al valor agregado con cuatro fallos
 anteriores a que el IVA existiera, los cuatro ciertos y ninguno leído. Se los había dado una
 herramienta que repartía las citas de una subsección entera —hasta 264 para una búsqueda cuyos
 fragmentos traían una—. Esa herramienta se retiró: el investigador tiene una sola, la búsqueda,
@@ -93,7 +93,24 @@ primera corrección con dos fallos distintos.
 
 ## El corpus
 
-Tres fuentes públicas de la Secretaría de Jurisprudencia de la CSJN.
+El **cuadernillo de doctrina sobre sentencias arbitrarias** de la Secretaría de Jurisprudencia
+de la CSJN, en cuatro documentos: el concepto de arbitrariedad, sus causales, la improcedencia
+del recurso y su trámite.
+
+| | |
+|---|---|
+| documentos | 4 |
+| fragmentos | 322 |
+| subsecciones | 27 |
+| citas en el padrón | 557, todas con su link oficial, que trae el propio cuadernillo |
+| índice | 8 MB en disco |
+
+### Las notas y los suplementos, fuera del índice
+
+El corpus llegó a tener 128 documentos: sumaba 82 notas de jurisprudencia y 42 suplementos.
+Salieron del índice y siguen en `catalogo.json` con `indexar: false`, junto con toda la ingesta
+de PDF, así que volver a sumarlos es cambiar esa bandera y reconstruir. Lo que sigue de esta
+sección documenta ese corpus y esa ingesta, medidos con ellos adentro.
 
 | fuente | documentos | páginas | fragmentos |
 |---|---|---|---|
@@ -103,9 +120,9 @@ Tres fuentes públicas de la Secretaría de Jurisprudencia de la CSJN.
 | Suplementos del Archivo Histórico | 15 | 5.680 | 15.451 |
 | **Total indexado** | **128** | **10.847** | **25.875** |
 
-El padrón tiene **9.005 citas**, todas con su link oficial: 3.338 salen de los hipervínculos
-que traen los PDF y 5.667 se arman con la plantilla de la Corte a partir del tomo y la página.
-El índice ocupa **436 MB** en disco y **194 MB** comprimido como artefacto.
+El padrón llegó a **9.005 citas**, todas con su link oficial: 3.338 salían de los hipervínculos
+que traen los PDF y 5.667 se armaban con la plantilla de la Corte a partir del tomo y la
+página. Ese índice ocupaba **436 MB** en disco y **194 MB** comprimido como artefacto.
 
 El **Archivo Histórico** son 15 suplementos de ediciones 2009-2016 —Competencia Originaria,
 Decretos de Necesidad y Urgencia, Habeas Corpus, Habeas Data, Derecho Electoral, Derecho del
@@ -359,12 +376,20 @@ invariante que vive en otros módulos: con nodos, la página no depende de que n
 
 ### De tema
 
-Dos capas, antes de crear la corrida, en `app/servicio/admision.py`:
+El alcance es la doctrina de la Corte sobre sentencias arbitrarias. Dos capas, antes de crear
+la corrida, en `app/servicio/admision.py`:
 
-1. **Piso de similitud** sobre el corpus (~USD 0,000002).
-2. **Clasificador** de una llamada con salida estructurada (~USD 0,00006).
+1. **Piso de similitud** sobre el corpus (~USD 0,000002). Frena lo que no es jurídico.
+2. **Clasificador** de una llamada con salida estructurada (~USD 0,00006). Separa la
+   arbitrariedad del resto de la jurisprudencia de la Corte, que es donde las similitudes se
+   pisan.
 
-Se admite cuando las dos pasan. Una consulta fuera de tema ya falla cerrada sin este control
+Se admite cuando las dos pasan. Calibrado contra el índice del cuadernillo con 30 consultas en
+tema y 30 fuera, doce de ellas sobre temas de la Corte que el corpus tuvo antes: las consultas
+de tema arrancan en 0,487 de similitud y las no jurídicas no pasan de 0,381, así que el umbral
+quedó en 0,40. Las dos capas juntas admiten 30 de 30 y rechazan 30 de 30. La primera versión
+del prompt rechazaba dos consultas del cuadernillo que no nombraban la palabra
+«arbitrariedad»; el prompt ahora lista la estructura del cuadernillo. Una consulta fuera de tema ya falla cerrada sin este control
 —cero citas, el verificador rechaza, tres reintentos—; lo que la admisión evita es pagar
 cuarenta segundos para llegar ahí.
 
@@ -623,13 +648,22 @@ copiarlo a mano da un respaldo al que le puede faltar justo lo que se quería gu
 
 ## Lo medido
 
-Sobre el corpus construido y el servicio corriendo:
+Sobre el cuadernillo, con 20 consultas de arbitrariedad corridas de punta a punta contra el grafo:
 
 | | |
 |---|---|
-| Latencia de una consulta publicada | 18-31 s |
-| Costo por consulta publicada | USD 0,0054 (`gpt-4o-mini`, medido sobre 14) |
-| Proyección a 1.500 consultas/mes | ~USD 8 de modelos |
+| Publicadas | 19 de 20; la restante reveló un error del verificador, ya corregido y repetido |
+| Latencia mediana de una consulta | 18 s |
+| Costo mediano por consulta | USD 0,0026 (`gpt-4o-mini`) |
+| Correcciones en las 20 | 6 |
+| Citas publicadas con su pasaje a la vista | 61 de 61, ninguna con un pasaje de otro fallo |
+| La subsección que responde entra al top-6 | 19 de 20 consultas etiquetadas |
+| Admisión, 30 consultas en tema y 30 fuera | 30 de 30 admitidas y 30 de 30 rechazadas |
+
+Medido con el corpus de 128 documentos, antes de que quedara solo el cuadernillo:
+
+| | |
+|---|---|
 | Memoria del proceso con el índice abierto | 294 MB |
 | Tres consultas en paralelo | 35 s, las tres publicadas |
 | 512 dimensiones contra 1536 | 84% de solapamiento del top-4 |
@@ -638,8 +672,9 @@ Sobre el corpus construido y el servicio corriendo:
 
 ## Alcance
 
-- El sistema comprueba que una cita **exista en el corpus**. Que el fallo sostenga la
-  afirmación que lo invoca lo comprueba quien lee.
+- El sistema comprueba que una cita **exista en el corpus**, que el investigador **la haya
+  leído** en esta consulta, y que el pasaje con el que se sostiene **esté en lo leído**. Que el
+  fallo, leído entero, sostenga la afirmación lo comprueba quien lee.
 - El control alcanza a las citas con números. Una referencia como "la doctrina de Colalillo"
   queda afuera; el prompt del redactor la prohíbe.
 - Las referencias por expediente y fecha (`C. 623. XLV. "Compañía Financiera", 10/12/2013`),

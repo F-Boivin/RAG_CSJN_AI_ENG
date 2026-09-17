@@ -6,7 +6,7 @@
     "titulo": "Conformación de las mayorías en los Tribunales Colegiados",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/2/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-3",
@@ -15,7 +15,7 @@
     "titulo": "Gravamen - Inadmisibilidad de agravios conjeturales",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/3/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-4",
@@ -24,7 +24,7 @@
     "titulo": "Subsistencia de los requisitos y pronunciamiento inoficioso",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/4/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-6",
@@ -33,7 +33,7 @@
     "titulo": "Defensa en juicio y Defensor Oficial",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/6/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-7",
@@ -42,7 +42,7 @@
     "titulo": "Sentencia como unidad lógica jurídica",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/7/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-8",
@@ -51,7 +51,7 @@
     "titulo": "Reclamo administrativo previo",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/8/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-9",
@@ -60,7 +60,7 @@
     "titulo": "Determinación de la capacidad y competencia",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/9/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-10",
@@ -69,7 +69,7 @@
     "titulo": "Apartamiento de un pronunciamiento anterior de la Corte",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/10/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-11",
@@ -78,7 +78,7 @@
     "titulo": "Momento procesal oportuno para la declaración de incompetencia",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/11/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-12",
@@ -87,7 +87,7 @@
     "titulo": "Retardo de justicia",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/12/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-13",
@@ -96,7 +96,7 @@
     "titulo": "Resolución sobre el fondo en la vía extraordinaria",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/13/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-14",
@@ -105,7 +105,7 @@
     "titulo": "Debida fundamentación de la concesión del Recurso Extraordinario",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/14/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-15",
@@ -114,7 +114,7 @@
     "titulo": "Exigencia del traslado previsto en el art. 257 del CPCCN",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/15/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-16",
@@ -123,7 +123,7 @@
     "titulo": "Aclaratoria y sentencia definitiva a los fines del recurso extraordinario",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/16/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-17",
@@ -132,7 +132,7 @@
     "titulo": "Despido discriminatorio",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/17/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-18",
@@ -141,7 +141,7 @@
     "titulo": "Aplicación en el tiempo de un nuevo criterio jurisprudencial procesal",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/18/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-19",
@@ -150,7 +150,7 @@
     "titulo": "Accidentes in itinere",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/19/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-20",
@@ -159,7 +159,7 @@
     "titulo": "Principio de congruencia",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/20/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-21",
@@ -168,7 +168,7 @@
     "titulo": "Habilitacion de la instancia judicial e in dubio pro actione",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/21/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-22",
@@ -177,7 +177,7 @@
     "titulo": "Principio de progresividad",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/22/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-23",
@@ -186,7 +186,7 @@
     "titulo": "Sentencias incompletas",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/23/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-24",
@@ -195,7 +195,7 @@
     "titulo": "Inconstitucionalidad sobreviniente",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/24/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-25",
@@ -204,7 +204,7 @@
     "titulo": "Historia de la Colección \"Fallos de la Corte Suprema\" (346:1575)",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/25/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-26",
@@ -213,7 +213,7 @@
     "titulo": "Recurso de queja y efecto suspensivo",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/26/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-27",
@@ -222,7 +222,7 @@
     "titulo": "Nulidad procesal y exigencia de perjuicio",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/27/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-30",
@@ -231,7 +231,7 @@
     "titulo": "Iura Novit Curia (Aplicación por el juez del derecho no invocado)",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/30/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-32",
@@ -240,7 +240,7 @@
     "titulo": "Recurso de queja y previa denegación del recurso extraordinario",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/32/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-33",
@@ -249,7 +249,7 @@
     "titulo": "Recursos in forma pauperis (Peticiones presentadas por personas detenidas)",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/33/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-34",
@@ -258,7 +258,7 @@
     "titulo": "Inexistencia de un derecho a la inmutabilidad de la ley que rige una situación juridica",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/34/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-35",
@@ -267,7 +267,7 @@
     "titulo": "Principio de legalidad (Introduccion)",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/35/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-36",
@@ -276,7 +276,7 @@
     "titulo": "Doctrina \"Peso\": Revocación de sentencias recurridas pese a haber devenido inoficioso pronunciarse",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/36/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-37",
@@ -285,7 +285,7 @@
     "titulo": "Acciones Colectivas: Verificación de los recaudos esenciales",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/37/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-38",
@@ -294,7 +294,7 @@
     "titulo": "La finalidad de la ley como criterio de interpretacion",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/38/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-42",
@@ -303,7 +303,7 @@
     "titulo": "Verdad Jurídica Objetiva",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/42/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-44",
@@ -312,7 +312,7 @@
     "titulo": "Notificación personal al procesado",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/44/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-45",
@@ -321,7 +321,7 @@
     "titulo": "Desistimiento tácito del recurso de queja",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/45/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-47",
@@ -330,7 +330,7 @@
     "titulo": "Derecho a ser oído de niños, niñas y adolescentes",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/47/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-48",
@@ -339,7 +339,7 @@
     "titulo": "Caducidad de instancia como instituto de interpretación restrictiva",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/48/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-49",
@@ -348,7 +348,7 @@
     "titulo": "Casación Horizontal",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/49/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-50",
@@ -357,7 +357,7 @@
     "titulo": "NUEVAS TECNOLOGÍAS - Plataformas digitales y competencia",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/50/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-51",
@@ -366,7 +366,7 @@
     "titulo": "Virtualidad de dictar pronunciamiento pese a los cambios normativos o fácticos",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/51/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-52",
@@ -375,7 +375,7 @@
     "titulo": "¿Puede ser la nacionalidad requisito para el ejercicio de ciertos derechos?",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/52/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-53",
@@ -384,7 +384,7 @@
     "titulo": "Intervención del Ministerio Pupilar y defensa en juicio",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/53/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-54",
@@ -393,7 +393,7 @@
     "titulo": "Casos justiciables a pesar de carecer de objeto actual",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/54/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-55",
@@ -402,7 +402,7 @@
     "titulo": "Exceso ritual manifiesto (Protección de niños y niñas)",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/55/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-56",
@@ -411,7 +411,7 @@
     "titulo": "Presentación de los escritos de Recurso de Queja y Extraordinario ante la Corte Suprema",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/56/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-57",
@@ -420,7 +420,7 @@
     "titulo": "Los primeros precedentes sobre la doctrina de la arbitrariedad",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/57/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-58",
@@ -429,7 +429,7 @@
     "titulo": "El requisito del “tribunal superior de la causa”",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/58/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-59",
@@ -438,7 +438,7 @@
     "titulo": "Reglamentación de la Ley",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/59/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-60",
@@ -447,7 +447,7 @@
     "titulo": "Resolución contraria implícita",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/60/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-63",
@@ -456,7 +456,7 @@
     "titulo": "Principio de no confiscatoriedad en materia tributaria",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/63/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-68",
@@ -465,7 +465,7 @@
     "titulo": "Garantías en el proceso penal - I - Plazo razonable",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/68/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-71",
@@ -474,7 +474,7 @@
     "titulo": "Normas locales y prescripción",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/71/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-73",
@@ -483,7 +483,7 @@
     "titulo": "Garantías en el Proceso Penal - II - Non bis in idem",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/73/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-77",
@@ -492,7 +492,7 @@
     "titulo": "Medidas cautelares - Verosimilitud en el derecho y peligro en la demora",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/77/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-79",
@@ -501,7 +501,7 @@
     "titulo": "Astreintes",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/79/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-81",
@@ -510,7 +510,7 @@
     "titulo": "Inconstitucionalidad por omisión",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/81/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-87",
@@ -519,7 +519,7 @@
     "titulo": "Revisión judicial del proceso de formación y sanción de la ley",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/87/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-89",
@@ -528,7 +528,7 @@
     "titulo": "Error aritmético o de cálculo",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/89/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-92",
@@ -537,7 +537,7 @@
     "titulo": "Medida cautelar innovativa",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/92/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-95",
@@ -546,7 +546,7 @@
     "titulo": "Equidad (Panorama)",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/95/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-101",
@@ -555,7 +555,7 @@
     "titulo": "A 160 años del Fallo “Otero\" (Fallos: 346:1571)",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/101/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-109",
@@ -564,7 +564,7 @@
     "titulo": "Facultades de la Corte en el control, aun de oficio, del procedimiento",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/109/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-112",
@@ -573,7 +573,7 @@
     "titulo": "Principio de legalidad en materia tributaria",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/112/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-135",
@@ -582,7 +582,7 @@
     "titulo": "El principio de no dañar a otro",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/135/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-142",
@@ -591,7 +591,7 @@
     "titulo": "Contrato administrativo - Principios generales",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/142/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-146",
@@ -600,7 +600,7 @@
     "titulo": "Relación directa e inmediata",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/146/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-148",
@@ -609,7 +609,7 @@
     "titulo": "Triángulo adoptivo afectivo",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/148/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-154",
@@ -618,7 +618,7 @@
     "titulo": "Defectos en la fundamentación normativa",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/154/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-156",
@@ -627,7 +627,7 @@
     "titulo": "Exceso ritual manifiesto: Panorama sobre sus principios generales",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/156/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-161",
@@ -636,7 +636,7 @@
     "titulo": "Notificación de la demanda y defensa en juicio",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/161/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-164",
@@ -645,7 +645,7 @@
     "titulo": "Sentencia Definitiva - Aspectos generales",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/164/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-168",
@@ -654,7 +654,7 @@
     "titulo": "Quiénes pueden interponer el recurso extraordinario",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/168/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-184",
@@ -663,7 +663,7 @@
     "titulo": "Doctrina de los actos propios",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/184/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-186",
@@ -672,7 +672,7 @@
     "titulo": "Caducidad de instancia en la Corte",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/186/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-189",
@@ -681,7 +681,7 @@
     "titulo": "NUEVAS TECNOLOGÍAS - Responsabilidad de los buscadores de internet",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/189/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-197",
@@ -690,7 +690,7 @@
     "titulo": "Honorarios profesionales y aplicación temporal de la ley",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/197/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-205",
@@ -699,7 +699,7 @@
     "titulo": "Acción meramente declarativa - Art. 322 del CPCCN - Competencia apelada - Principios generales",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/205/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-208",
@@ -708,7 +708,7 @@
     "titulo": "Descalificación de la sentencia por la Corte y límites del nuevo pronunciamiento",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/208/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-211",
@@ -717,7 +717,7 @@
     "titulo": "Arbitrariedad de sentencia por contradicción",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/211/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-215",
@@ -726,7 +726,7 @@
     "titulo": "DIGNIDAD HUMANA",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/215/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "nota-224",
@@ -735,7 +735,7 @@
     "titulo": "DERECHO A LA IMAGEN",
     "categoria": "Notas de jurisprudencia",
     "url": "https://sj.csjn.gov.ar/homeSJ/notas/nota/224/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-1",
@@ -744,7 +744,7 @@
     "titulo": "Interés Superior del Niño - Edición 2024 - Con hipervínculos a la base",
     "categoria": "Interés Superior del Niño",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/1/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-2",
@@ -753,7 +753,7 @@
     "titulo": "Derecho a la Salud - Edición 2025 - (con hipervínculos a la base)",
     "categoria": "Derecho a la Salud",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/2/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-4",
@@ -762,7 +762,7 @@
     "titulo": "Conmemoración de los 25 años de la Reforma Constitucional",
     "categoria": "Fallos Relevantes",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/4/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-5",
@@ -771,7 +771,7 @@
     "titulo": "Relevant Cases J20 (Edición Bilingüe)",
     "categoria": "Fallos Relevantes",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/5/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-42",
@@ -780,7 +780,7 @@
     "titulo": "Suplemento Ambiental 2021",
     "categoria": "Ambiental",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/42/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-43",
@@ -789,7 +789,7 @@
     "titulo": "Suplemento Ambiental 2020",
     "categoria": "Ambiental",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/43/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-44",
@@ -798,7 +798,7 @@
     "titulo": "Suplemento Ambiental 2019",
     "categoria": "Ambiental",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/44/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-45",
@@ -807,7 +807,7 @@
     "titulo": "Suplemento Ambiental 2018",
     "categoria": "Ambiental",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/45/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-46",
@@ -816,7 +816,7 @@
     "titulo": "Suplemento Ambiental 2016",
     "categoria": "Ambiental",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/46/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-47",
@@ -825,7 +825,7 @@
     "titulo": "Suplemento Ambiental 2012",
     "categoria": "Ambiental",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/47/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-48",
@@ -834,7 +834,7 @@
     "titulo": "Competencia Originaria - Mayo 2014",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/48/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-49",
@@ -843,7 +843,7 @@
     "titulo": "Decretos de Necesidad y Urgencia - Agosto 2010",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/49/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-50",
@@ -852,7 +852,7 @@
     "titulo": "Defensa de la Competencia - Defensa del Consumidor - Lealtad - Febrero 2014",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/50/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-52",
@@ -861,7 +861,7 @@
     "titulo": "Derecho a la Salud - Mayo 2010",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/52/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-53",
@@ -870,7 +870,7 @@
     "titulo": "Derecho del Trabajo - Diciembre 2010",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/53/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-54",
@@ -879,7 +879,7 @@
     "titulo": "Derecho Electoral - Agosto 2014",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/54/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-55",
@@ -888,7 +888,7 @@
     "titulo": "Emergencia Económica I - Noviembre 2009",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/55/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-56",
@@ -897,7 +897,7 @@
     "titulo": "Emergencia Económica II - Diciembre 2009",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/56/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-57",
@@ -906,7 +906,7 @@
     "titulo": "Habeas Corpus",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/57/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-58",
@@ -915,7 +915,7 @@
     "titulo": "Habeas Data - Noviembre 2012",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/58/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-59",
@@ -924,7 +924,7 @@
     "titulo": "Interés Superior del Niño - Diciembre 2012",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/59/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-60",
@@ -933,7 +933,7 @@
     "titulo": "Jurisdicción y Competencia - 2016",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/60/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-61",
@@ -942,7 +942,7 @@
     "titulo": "Libertad de Expresión - Diciembre 2010",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/61/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-62",
@@ -951,7 +951,7 @@
     "titulo": "Marcas y Patentes - Junio 2015",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/62/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-63",
@@ -960,7 +960,7 @@
     "titulo": "Movilidad Jubilatoria - Febrero 2009",
     "categoria": "Archivo Histórico",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/63/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-64",
@@ -969,7 +969,7 @@
     "titulo": "Fallos Relevantes (2003-2016) (Segunda Edición)",
     "categoria": "Fallos Relevantes",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/64/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-65",
@@ -978,7 +978,7 @@
     "titulo": "Fallos Relevantes (2015) (Primera Edición)",
     "categoria": "Fallos Relevantes",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/65/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-67",
@@ -987,7 +987,7 @@
     "titulo": "Principio de la reparación plena del daño",
     "categoria": "Principio de la reparación plena del daño",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/67/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-68",
@@ -996,7 +996,7 @@
     "titulo": "Libertad de Expresión - \"Real Malicia\" y \"Campillay\"",
     "categoria": "Libertad de Expresión",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/68/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-70",
@@ -1005,7 +1005,7 @@
     "titulo": "Citas de doctrina en los precedentes de la Corte Suprema (Parte 1)",
     "categoria": "Citas de Doctrina",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/70/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-71",
@@ -1014,7 +1014,7 @@
     "titulo": "Delitos de lesa humanidad - Primera Edición - Julio 2009",
     "categoria": "Delitos de lesa humanidad",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/71/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-72",
@@ -1023,7 +1023,7 @@
     "titulo": "Delitos de lesa humanidad - Segunda Edición - Marzo 2023",
     "categoria": "Delitos de lesa humanidad",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/72/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-73",
@@ -1032,7 +1032,7 @@
     "titulo": "Profesores Universitarios",
     "categoria": "Profesores Universitarios",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/73/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-74",
@@ -1041,7 +1041,7 @@
     "titulo": "Derechos de los Consumidores y Usuarios",
     "categoria": "Derechos de los Consumidores y Usuarios",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/74/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-75",
@@ -1050,7 +1050,7 @@
     "titulo": "Sobre el origen de la doctrina de arbitrariedad (Fallos: 347:109)",
     "categoria": "Origen de la doctrina de la arbitrariedad",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/75/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-76",
@@ -1059,7 +1059,7 @@
     "titulo": "La vulnerabilidad en los precedentes de la Corte Suprema",
     "categoria": "La vulnerabilidad en los precedentes de la Corte Suprema",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/76/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-77",
@@ -1068,7 +1068,7 @@
     "titulo": "Citas de doctrina en los precedentes de la Corte Suprema (Parte 2)",
     "categoria": "Citas de Doctrina",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/77/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-79",
@@ -1077,7 +1077,7 @@
     "titulo": "Migraciones - Ley 25.871 - Edición 2024",
     "categoria": "Migraciones - Ley 25.871",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/79/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-80",
@@ -1086,7 +1086,7 @@
     "titulo": "Citas de doctrina en los precedentes de la Corte Suprema (Parte 3)",
     "categoria": "Citas de Doctrina",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/80/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-81",
@@ -1095,7 +1095,7 @@
     "titulo": "Art. 19 Constitución Nacional",
     "categoria": "Art. 19 Constitución Nacional",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/81/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-82",
@@ -1104,7 +1104,7 @@
     "titulo": "Derechos de las Personas con Discapacidad",
     "categoria": "Derechos de las Personas con Discapacidad",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/82/documento",
-    "indexar": true
+    "indexar": false
   },
   {
     "origen": "suplemento-83",
@@ -1113,6 +1113,6 @@
     "titulo": "Restitución internacional de Niños, Niñas y Adolescentes",
     "categoria": "Restitución internacional de Niños, Niñas y Adolescentes",
     "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/83/documento",
-    "indexar": true
+    "indexar": false
   }
 ]

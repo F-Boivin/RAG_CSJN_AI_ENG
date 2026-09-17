@@ -4,11 +4,7 @@ Los retrievers ven el mismo corpus —los fragmentos que la ingesta escribió en
 índice léxico— así que describen la misma base y la fusión dedupica por contenido. El léxico
 encuentra la cita escrita literal, que el embedding diluye entre párrafos parecidos; el
 vectorial encuentra la consulta parafraseada, que el léxico no matchea. `crear_hibrido` los
-pesa por igual dentro de cada pool.
-
-Los pools son dos —doctrina curada y compilaciones de sentencias— y cada uno tiene su cuota
-de lugares en el resultado, porque el segundo es el 93% del corpus y le ganaba al primero por
-volumen. Eso lo reparte `RecuperadorPorCuota`.
+pesa por igual.
 
 El lado vectorial emite sus dos spans: sin ellos, la recuperación sería un hueco de tiempo
 adentro de la herramienta.
@@ -18,7 +14,6 @@ Verificado contra la documentación oficial:
   https://reference.langchain.com/python/langchain-classic/retrievers/ensemble/EnsembleRetriever
 """
 
-import asyncio
 from typing import Optional
 
 from langchain_chroma import Chroma
@@ -55,8 +50,6 @@ class RecuperadorVectorial(BaseRetriever):
 
     vectorstore: Chroma
     k: int = cfg.RESULTADOS_RECUPERADOS
-    # Con `fuentes`, este recuperador ve solo un pool del corpus. Vacío, ve el corpus entero.
-    fuentes: tuple[str, ...] = ()
 
     async def _aget_relevant_documents(
         self, query: str, *, run_manager: AsyncCallbackManagerForRetrieverRun
@@ -68,11 +61,8 @@ class RecuperadorVectorial(BaseRetriever):
         with span_de_embedding("embeber_consulta", query,
                                obtener_ajustes().modelo_embeddings, tokens):
             vector = await self.vectorstore.embeddings.aembed_query(query)
-        pool = "+".join(self.fuentes) or "corpus"
-        filtro = {"fuente": {"$in": list(self.fuentes)}} if self.fuentes else None
-        with span_de_recuperacion("chroma_vecinos", query, k=self.k, pool=pool) as span:
-            documentos = await self.vectorstore.asimilarity_search_by_vector(
-                vector, k=self.k, filter=filtro)
+        with span_de_recuperacion("chroma_vecinos", query, k=self.k) as span:
+            documentos = await self.vectorstore.asimilarity_search_by_vector(vector, k=self.k)
             anotar_documentos(span, documentos)
         return documentos
 
@@ -85,93 +75,20 @@ class RecuperadorVectorial(BaseRetriever):
         raise NotImplementedError(msj.ERROR_RECUPERADOR_SINCRONICO)
 
 
-def repartir(cantidad: int) -> tuple[int, int]:
-    """Cuántos lugares le tocan a la doctrina y cuántos a las sentencias.
-
-    Se calcula y no se lee de una constante porque `buscar_doctrina` acepta la cantidad como
-    argumento: la cuota tiene que valer para cualquier `k`, no solo para el de por defecto.
-    """
-    de_sentencias = round(cantidad * cfg.PROPORCION_SENTENCIAS)
-    return cantidad - de_sentencias, de_sentencias
-
-
-class RecuperadorPorCuota(BaseRetriever):
-    """Reparte los lugares del top-k entre los dos pools del corpus, en vez de sortearlos.
-
-    **La competencia abierta entre pools la gana el que tiene más fragmentos.** Los
-    suplementos son 24.145 contra 1.730 de doctrina, y con los dos compitiendo por los mismos
-    lugares el investigador se quedaba sin la doctrina que responde la pregunta: «impuesto al
-    valor agregado» le traía el impuesto al azúcar de 1871 y dos citas para toda la respuesta.
-
-    Pesar la doctrina por encima arregla eso y rompe otra cosa, porque los suplementos son
-    dueños de materias enteras —Habeas Corpus, Movilidad Jubilatoria, Marcas y Patentes— que
-    ninguna nota cubre. Medido con 16 consultas etiquetadas, el peso pierde nueve de esas
-    materias y la cuota no pierde ninguna. El detalle está en `constantes.py`.
-
-    Cuando un pool viene corto, el otro completa: devolver menos de lo pedido le sacaría
-    material al investigador sin que nadie gane nada.
-    """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    doctrina: BaseRetriever
-    sentencias: BaseRetriever
-    k: int = cfg.RESULTADOS_RECUPERADOS
-
-    async def recuperar(self, consulta: str, cantidad: int) -> list[Document]:
-        """Los `cantidad` fragmentos del corpus, repartidos entre los dos pools."""
-        de_doctrina, de_sentencias = repartir(cantidad)
-        with span_de_recuperacion("cuota_pools", consulta, k=cantidad,
-                                  doctrina=de_doctrina, sentencias=de_sentencias) as span:
-            # Los dos pools son consultas independientes contra la misma base: en paralelo,
-            # la más lenta marca el tiempo en vez de sumarse a la otra.
-            doctrina, sentencias = await asyncio.gather(
-                self.doctrina.ainvoke(consulta), self.sentencias.ainvoke(consulta))
-            elegidos = doctrina[:de_doctrina] + sentencias[:de_sentencias]
-            if len(elegidos) < cantidad:
-                sobrantes = doctrina[de_doctrina:] + sentencias[de_sentencias:]
-                elegidos += sobrantes[: cantidad - len(elegidos)]
-            anotar_documentos(span, elegidos)
-        return elegidos
-
-    async def _aget_relevant_documents(
-        self, query: str, *, run_manager: AsyncCallbackManagerForRetrieverRun
-    ) -> list[Document]:
-        """El contrato de `BaseRetriever`, con la cantidad configurada."""
-        return await self.recuperar(query, self.k)
-
-    def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
-    ) -> list[Document]:
-        """El camino sincrónico, que este retriever no ofrece."""
-        raise NotImplementedError(msj.ERROR_RECUPERADOR_SINCRONICO)
-
-
 def crear_hibrido(vectorstore: Chroma, lexico: Lexico,
-                  top_k: Optional[int] = None) -> RecuperadorPorCuota:
-    """El recuperador del servicio: dos ensambles híbridos, uno por pool, con su cuota.
+                  top_k: Optional[int] = None) -> EnsembleRetriever:
+    """El ensamble de los dos retrievers sobre el mismo corpus.
 
-    Cada ensamble fusiona su lado léxico y su lado vectorial por rango recíproco, con los dos
-    lados pesados igual. Lo que ya no compite es un pool contra el otro: cada uno tiene sus
-    lugares reservados en el resultado.
-
-    Cada lado aporta más candidatos que los lugares que va a llenar, para que la fusión elija
-    entre más de cada uno.
+    Cada lado aporta más candidatos que los que se van a devolver: la fusión elige mejor
+    viendo más de cada uno, y el recorte a `top_k` lo aplica quien consulta, después de
+    fusionar.
     """
     top_k = top_k or cfg.RESULTADOS_RECUPERADOS
     candidatos = max(cfg.CANDIDATOS_POR_RETRIEVER, top_k)
-
-    def ensamble(fuentes: tuple[str, ...]) -> EnsembleRetriever:
-        return EnsembleRetriever(
-            retrievers=[
-                RecuperadorLexico(lexico=lexico, k=candidatos, fuentes=fuentes),
-                RecuperadorVectorial(vectorstore=vectorstore, k=candidatos, fuentes=fuentes),
-            ],
-            weights=[cfg.PESO_LEXICO, cfg.PESO_VECTORIAL],
-        )
-
-    return RecuperadorPorCuota(
-        doctrina=ensamble(cfg.FUENTES_DOCTRINA),
-        sentencias=ensamble(cfg.FUENTES_SENTENCIAS),
-        k=top_k,
+    return EnsembleRetriever(
+        retrievers=[
+            RecuperadorLexico(lexico=lexico, k=candidatos),
+            RecuperadorVectorial(vectorstore=vectorstore, k=candidatos),
+        ],
+        weights=[cfg.PESO_LEXICO, cfg.PESO_VECTORIAL],
     )

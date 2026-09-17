@@ -69,6 +69,16 @@ class TestInvariantesDeLosArtefactos:
             Cita(fallo="Fallos: 311:2437",
                  afirmacion="Una afirmacion suficientemente larga.", prioridad="alta")
 
+    def test_el_fallo_llega_recortado(self):
+        # Es la clave con la que el verificador lo busca: un espacio al final mataba la corrida.
+        cita = Cita(fallo="  Fallos: 311:2437 ", afirmacion="Una afirmacion suficientemente larga.")
+        assert cita.fallo == "Fallos: 311:2437"
+
+    def test_un_fallo_de_puros_espacios_no_pasa_el_largo_minimo(self):
+        # Se recorta antes de validar el largo, así que no se cuela vacío.
+        with pytest.raises(ValidationError):
+            Cita(fallo="     ", afirmacion="Una afirmacion suficientemente larga.")
+
     def test_la_subseccion_ya_no_la_escribe_el_modelo(self):
         # La deduce el registro de lo recuperado. Escribirla le costó a la consulta insignia
         # sus tres correcciones, con las trece citas verificadas y ninguna inventada.

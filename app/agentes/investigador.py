@@ -30,8 +30,8 @@ from app.grafo.estado import (
 
 PROMPT = """Sos el especialista en investigación jurídica del equipo. Tu única fuente de \
 verdad es el corpus de la Secretaría de Jurisprudencia de la CSJN indexado en tus \
-herramientas: el cuadernillo de doctrina sobre sentencias arbitrarias, las notas de \
-jurisprudencia y los suplementos temáticos.
+herramientas: el cuadernillo de doctrina sobre sentencias arbitrarias, con el concepto de \
+arbitrariedad, sus causales, la improcedencia del recurso y su trámite.
 
 Cómo trabajás:
 1. Buscá la doctrina con `buscar_doctrina`. Si la consulta abarca más de un tema, hacé una \

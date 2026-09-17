@@ -7,9 +7,16 @@ dos centavos para llegar ahí.
 Dos capas que corren a la vez y tienen que coincidir:
 
 1. **El piso de recuperación**: se embebe la consulta una vez y se mira la mejor similitud del
-   corpus. Cuesta ~USD 0,000002. El umbral se calibra con 30 consultas dentro de tema y 30
-   fuera; hasta esa medición, el default es una apuesta.
-2. **El clasificador**: una llamada a `gpt-4o-mini` con salida estructurada, ~USD 0,00006.
+   corpus. Cuesta ~USD 0,000002. Frena lo que no es jurídico, y nada más: entre la
+   arbitrariedad y los otros temas del derecho las similitudes se pisan.
+2. **El clasificador**: una llamada a `gpt-4o-mini` con salida estructurada, ~USD 0,00006. Es
+   el que separa la arbitrariedad del resto de la jurisprudencia de la Corte.
+
+Medido contra el índice del cuadernillo, con 30 consultas en tema y 30 fuera —doce de ellas
+sobre temas de la Corte que el corpus tuvo hasta que se quedó solo con el cuadernillo—: las dos
+capas juntas admiten 30 de 30 y rechazan 30 de 30. La primera versión del prompt rechazaba dos
+consultas del cuadernillo que no nombraban la palabra «arbitrariedad», y por eso el prompt lista
+la estructura del cuadernillo y pide admitir ante la duda sobre el recurso extraordinario.
 
 Se admite cuando las dos pasan, y el motivo que ve la persona lo escribe el clasificador. Van
 antes de crear la corrida, así una consulta fuera de tema no consume cupo de consultas —solo
@@ -26,28 +33,26 @@ import app.nucleo.mensajes as msj
 from app.nucleo.config import obtener_ajustes
 from app.nucleo.modelos import crear_chat
 
-PROMPT_ADMISION = """Sos el filtro de alcance de un buscador de jurisprudencia de la Corte \
-Suprema de Justicia de la Nación Argentina.
+PROMPT_ADMISION = """Sos el filtro de alcance de un buscador sobre la doctrina de la Corte Suprema de Justicia de la Nación Argentina en materia de sentencias arbitrarias.
 
-El buscador responde sobre doctrina y precedentes de la Corte: recurso extraordinario, \
-sentencias arbitrarias, derechos constitucionales, competencia, y los temas de los \
-suplementos de la Secretaría de Jurisprudencia (salud, ambiente, consumidores, discapacidad, \
-migraciones, libertad de expresión, lesa humanidad, entre otros).
+El buscador responde con el cuadernillo de la Secretaría de Jurisprudencia sobre la arbitrariedad, que trata:
+- la doctrina: su origen, su carácter excepcional, que la Corte no es una tercera instancia, y la diferencia entre arbitrariedad y error;
+- las causales: falta de fundamentación, afirmaciones dogmáticas, apartamiento de las constancias de la causa, valoración de hechos y prueba, omisión de extremos conducentes, interpretación errónea o apartamiento de la norma aplicable, excesos u omisiones en el pronunciamiento, exceso ritual manifiesto y contradicción;
+- la improcedencia del recurso por arbitrariedad;
+- el trámite: la fundamentación de la concesión por el tribunal a quo, el recurso de queja, y la relación y el orden entre la cuestión federal y la arbitrariedad.
 
-Admitís una consulta si busca doctrina, precedentes o criterios de la Corte, aunque esté mal \
-redactada o use términos vagos.
+Admitís una consulta si pregunta por algo de eso, aunque esté mal redactada, use términos vagos o no nombre la palabra «arbitrariedad». Ante la duda con una pregunta sobre el recurso extraordinario o sobre cómo revisa la Corte las sentencias de otros tribunales, admitila.
 
-Rechazás una consulta si pide asesoramiento sobre un caso propio, si es sobre otra rama del \
-derecho sin conexión con la Corte, si pregunta por hechos actuales, o si no es una pregunta \
-jurídica.
+Rechazás una consulta sobre otros temas de la Corte —derechos del niño, tributos, salud, ambiente, lesa humanidad, competencia originaria, entre otros—: el buscador no tiene esos materiales, y admitirla es prometer una respuesta que no puede dar. Rechazás también si pide asesoramiento sobre un caso propio, si pregunta por hechos actuales, o si no es una pregunta jurídica.
 
-Devolvé el motivo en una oración, dirigida a quien preguntó."""
+Devolvé el motivo en una oración, dirigida a quien preguntó. Cuando rechazás por tema, decí que el buscador trata solo la doctrina de la Corte sobre sentencias arbitrarias."""
 
 
 class Admision(BaseModel):
     """El veredicto del clasificador."""
 
-    admitida: bool = Field(description="Si la consulta busca jurisprudencia de la CSJN.")
+    admitida: bool = Field(
+        description="Si la consulta busca la doctrina de la CSJN sobre sentencias arbitrarias.")
     motivo: str = Field(min_length=3, max_length=300,
                         description="Por qué, en una oración para quien preguntó.")
 

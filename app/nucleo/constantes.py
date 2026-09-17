@@ -28,46 +28,20 @@ ETIQUETA_FUENTE = "Fuente:"
 METRICA_DISTANCIA = {"hnsw:space": "cosine"}
 
 # --- Recuperación ---
-# **El corpus tiene dos naturalezas.** Las notas y el cuadernillo son doctrina que la
-# Secretaría curó y enlazó: 1.730 fragmentos, densos en citas. Los suplementos son
-# compilaciones temáticas de sentencias completas —Habeas Corpus, Movilidad Jubilatoria,
-# Marcas y Patentes, Derecho a la Salud—: 24.145 fragmentos, el 93% del índice.
-FUENTES_DOCTRINA = ("nota", "cuadernillo")
-FUENTES_SENTENCIAS = ("suplemento",)
-
-# Cada pool tiene su cuota de lugares, y ese reparto reemplaza a la competencia abierta entre
-# los dos. Con los dos pools compitiendo por los mismos lugares gana el que tiene 14 veces más
-# fragmentos: «algo sobre impuesto al valor agregado» devolvía el impuesto al azúcar de 1871 y
-# el investigador se quedaba con dos citas para toda la respuesta.
+# Seis fragmentos. Medido sobre el cuadernillo con 20 consultas etiquetadas por subsección: con
+# cuatro, la subsección que responde entra al top-k en 16 de 20; con seis y con ocho, en 19. Seis
+# da la misma cobertura que ocho con un cuarto menos de contexto, y la peor consulta del conjunto
+# sigue leyendo diez citas propias.
 #
-# Pesar la doctrina por encima resuelve eso y rompe otra cosa: **los suplementos son dueños de
-# materias enteras**. Medido con 16 consultas etiquetadas, cada una con el documento que la
-# responde, contando si ese documento entra al top-k y cuántas citas propias queda leyendo:
-#
-#     estrategia          trae el documento    citas propias
-#     como estaba                  16/16               190
-#     peso 70/30                    7/16               249   ← pierde habeas corpus,
-#     peso 60/40                   13/16               232      movilidad jubilatoria,
-#     cuota 4+2 (k=6)              15/16               209      marcas y patentes, salud,
-#     cuota 3+3 (k=6)              15/16               178      libertad de expresión,
-#     cuota 6+2 (k=8)              15/16               269      ambiental y el interés
-#     cuota 4+4 (k=8)              16/16               235      superior del niño
-#     cuota 5+3 (k=8)              16/16               251   ←
-#
-# La cuota es lo único que da las dos cosas, porque reserva lugar para el pool chico sin que
-# el grande tenga que perder. 5+3 iguala la cobertura temática de como estaba —16 de 16— con
-# un tercio más de citas para citar.
-CUOTA_DOCTRINA = 5
-CUOTA_SENTENCIAS = 3
-# Ocho y no cuatro: una cita solo se puede publicar si está en un fragmento que el
-# investigador leyó, así que el top-k es el techo del material disponible.
-RESULTADOS_RECUPERADOS = CUOTA_DOCTRINA + CUOTA_SENTENCIAS
-PROPORCION_SENTENCIAS = CUOTA_SENTENCIAS / RESULTADOS_RECUPERADOS
+# El corpus llegó a tener 128 documentos, con notas y suplementos, y ahí la recuperación repartía
+# lugares entre dos pools para que el volumen de los suplementos no tapara la doctrina. Esa
+# medición y ese código están en el historial de git, por si esas fuentes vuelven.
+RESULTADOS_RECUPERADOS = 6
 # Candidatos que aporta cada lado del ensamble antes de fusionar. Más altos que el
 # resultado final a propósito: la fusión elige mejor viendo más de cada uno.
 CANDIDATOS_POR_RETRIEVER = 10
 
-# Dentro de cada pool los dos lados pesan igual, y eso está medido: cada uno gana en un tipo
+# Los dos lados pesan igual, y eso está medido: cada uno gana en un tipo
 # de consulta distinto. Con el vocabulario del corpus el léxico llega al 96% de precisión en
 # el top-4 y el vectorial al 74%; con la misma pregunta escrita como la escribiría alguien que
 # no leyó el corpus, se dan vuelta —50% contra 66%—.

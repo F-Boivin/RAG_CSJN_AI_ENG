@@ -93,6 +93,20 @@ class TestLeerVeredicto:
     def test_una_linea_incompleta_se_ignora(self):
         assert herramientas.leer_veredicto("basura sin separador") == {}
 
+    def test_una_cita_con_espacio_al_final_se_lee_recortada(self):
+        # El caso medido: el modelo copió una lista de citas y el esquema se la cortó.
+        crudo = "Fallos: 326:297; Fallos:  | EXISTE | https://ejemplo/x"
+        assert herramientas.leer_veredicto(crudo) == {"Fallos: 326:297; Fallos:": True}
+
+    def test_una_cita_con_una_barra_adentro_se_lee_entera(self):
+        # La cita la escribe el modelo; el estado y la URL, la herramienta.
+        crudo = "Fallos: 311:2437 | expte 12/2020 | NO EXISTE |"
+        assert herramientas.leer_veredicto(crudo) == {"Fallos: 311:2437 | expte 12/2020": False}
+
+    def test_la_url_no_se_confunde_con_el_estado(self):
+        crudo = "Fallos: 311:2437 | EXISTE | https://sjconsulta.csjn.gov.ar/x?EXISTE=1"
+        assert herramientas.leer_veredicto(crudo) == {"Fallos: 311:2437": True}
+
 
 class TestLinkOficial:
     """La herramienta del redactor, acotada por cierre a lo verificado en esa corrida."""
@@ -163,10 +177,10 @@ class TestBuscarDoctrina:
             tmp_path / "lexico.sqlite3", padron=dict(self.PADRON)))
 
     def recuperador(self, monkeypatch, documentos):
-        """Un doble del recuperador por cuota: acá se prueba la herramienta, no el ensamble."""
+        """Un doble del ensamble: acá se prueba la herramienta, no la recuperación."""
         class Falso:
-            async def recuperar(self, _consulta, cantidad):
-                return documentos[:cantidad]
+            async def ainvoke(self, _consulta):
+                return list(documentos)
 
         monkeypatch.setattr(herramientas, "_hibrido", Falso())
 
@@ -286,7 +300,7 @@ class TestBuscarDoctrina:
 
     async def test_una_caida_del_indice_vuelve_como_observacion(self, monkeypatch):
         class Caido:
-            async def recuperar(self, *_a, **_k):
+            async def ainvoke(self, *_a, **_k):
                 raise OSError("indice caido")
 
         monkeypatch.setattr(herramientas, "_hibrido", Caido())

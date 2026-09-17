@@ -98,9 +98,8 @@ class TestUnaConexionUnLock:
     La conexión se abre con `check_same_thread=False` —las consultas corren en
     `asyncio.to_thread` y el hilo del pool cambia entre llamadas—, así que sqlite3 deja de
     controlar y la exclusión queda a cargo de esta clase. Cuatro caminos entran desde hilos
-    distintos: `buscar` desde los cuatro recuperadores del ensamble —dos pools por dos lados—,
-    el padrón desde el verificador y desde la herramienta de búsqueda, y las subsecciones desde
-    la resolución de nombres.
+    distintos: `buscar` desde el recuperador léxico, el padrón desde el verificador y desde la
+    herramienta de búsqueda, y las subsecciones desde la resolución de nombres.
 
     Lo que se prueba no es la carrera, que es intermitente por definición, sino el invariante:
     se envuelve la conexión y se falla en cuanto dos hilos se solapan adentro de una consulta.
@@ -149,7 +148,8 @@ class TestUnaConexionUnLock:
             for k in range(vueltas):
                 try:
                     lexico.buscar("imagen excepciones", 4)
-                    lexico.buscar("imagen", 4, cfg.FUENTES_DOCTRINA)
+                    # Sin caché, a diferencia del padrón: cada vuelta entra a la conexión.
+                    lexico.cantidad_fragmentos()
                     lexico.subsecciones()
                 except Exception as exc:  # cualquier fallo cuenta
                     errores.append(exc)
@@ -333,59 +333,6 @@ class TestBusquedaLexica:
         _, _, metadata = lexico.buscar("exceso ritual", 1)[0]
         assert metadata["subseccion"] == "Arbitrariedad · 1. Exceso ritual"
         assert metadata["origen"] == "nota-2"
-
-
-class TestBusquedaPorPool:
-    """El filtro por fuente: consultar una sola naturaleza del corpus.
-
-    El corpus real son 1.730 fragmentos de doctrina curada contra 24.145 de texto de
-    sentencias. Recuperar de los dos juntos y filtrar después no sirve, porque el 93% copa el
-    top-k antes de que haya nada que filtrar: el filtro tiene que estar en el SQL.
-    """
-
-    @pytest.fixture
-    def mezclado(self, tmp_path) -> Lexico:
-        ruta = tmp_path / "mezclado.sqlite3"
-        with EscritorLexico(ruta) as escritor:
-            escritor.escribir_fragmentos([
-                {**fragmento(0, "nota-1", "Exceso ritual · 1", "El exceso ritual manifiesto "
-                             "sacrifica la verdad juridica objetiva."), "fuente": "nota"},
-                {**fragmento(1, "cuadernillo-6", "6.2.7 Exceso ritual", "El exceso ritual es "
-                             "causal autonoma de arbitrariedad."), "fuente": "cuadernillo"},
-                {**fragmento(2, "suplemento-1", "Suplemento · pags. 81-90", "Que el exceso "
-                             "ritual invocado a fs. 88 no se configura en la especie."),
-                 "fuente": "suplemento"},
-            ])
-        return Lexico(ruta, solo_lectura=True)
-
-    def _fuentes(self, filas):
-        return {m["fuente"] for _, _, m in filas}
-
-    def test_acota_a_las_fuentes_pedidas(self, mezclado):
-        filas = mezclado.buscar("exceso ritual", 10, cfg.FUENTES_DOCTRINA)
-        assert self._fuentes(filas) == {"nota", "cuadernillo"}
-
-    def test_una_sola_fuente(self, mezclado):
-        filas = mezclado.buscar("exceso ritual", 10, ("suplemento",))
-        assert [i for i, _, _ in filas] == ["suplemento-1#0002"]
-
-    def test_sin_fuentes_busca_en_todo_el_corpus(self, mezclado):
-        assert self._fuentes(mezclado.buscar("exceso ritual", 10)) == {
-            "nota", "cuadernillo", "suplemento"}
-
-    def test_una_lista_vacia_de_fuentes_busca_en_todo(self, mezclado):
-        # Vacío es «sin filtro», que es lo que espera el retriever cuando no se le configura
-        # un pool. Leerlo como «ninguna fuente» devolvería cero y apagaría la búsqueda.
-        assert len(mezclado.buscar("exceso ritual", 10, ())) == 3
-
-    def test_el_filtro_no_se_come_el_orden_por_bm25(self, mezclado):
-        # El recorte a `cantidad` se aplica después del filtro: pedir uno del pool chico
-        # devuelve el mejor de ese pool, y no el mejor del corpus si no es de ese pool.
-        filas = mezclado.buscar("exceso ritual", 1, ("suplemento",))
-        assert [m["fuente"] for _, _, m in filas] == ["suplemento"]
-
-    def test_una_fuente_que_no_existe_devuelve_nada(self, mezclado):
-        assert mezclado.buscar("exceso ritual", 10, ("inexistente",)) == []
 
 
 class TestIngestaIncremental:

@@ -121,8 +121,8 @@ async def verificar(investigacion: Investigacion,
                     fragmentos_por_cita: dict[str, list[str]] | None = None) -> Verificacion:
     """Devuelve el veredicto sobre una investigación.
 
-    Tres comprobaciones y no una. **Que la cita exista** se contrasta contra el padrón, que son
-    las 9.005 citas del corpus. **Que venga al caso** se contrasta contra `recuperado`, el
+    Tres comprobaciones y no una. **Que la cita exista** se contrasta contra el padrón, las
+    citas del corpus con su link oficial. **Que venga al caso** se contrasta contra `recuperado`, el
     registro de qué fragmento trajo cada fallo durante esta corrida. **Que el pasaje la
     respalde** se contrasta contra el texto de los fragmentos donde aparece ese fallo, y de
     ningún otro.
@@ -150,6 +150,13 @@ async def verificar(investigacion: Investigacion,
             aprobado=False,
             observaciones=("la sintesis no trae ninguna cita: no hay nada que verificar",),
         )
+
+    # Las citas se recortan una vez, a la entrada, y todo lo que sigue compara contra esa forma.
+    # `Cita.fallo` ya llega recortado cuando pasa por su validador; esto cubre al artefacto que se
+    # arma sin validar. Sin eso la guarda de cobertura buscaba la cita con su espacio al final
+    # contra un veredicto que la devuelve recortada, y mataba la corrida en vez de rechazarla.
+    investigacion = investigacion.model_copy(update={"citas": tuple(
+        c.model_copy(update={"fallo": c.fallo.strip()}) for c in investigacion.citas)})
 
     afirmadas = citas_distintas(investigacion)
 

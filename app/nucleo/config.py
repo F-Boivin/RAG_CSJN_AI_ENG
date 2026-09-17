@@ -85,7 +85,11 @@ class Ajustes(BaseSettings):
     intentos_por_ip: int = Field(default=60, ge=1)
     consultas_concurrentes: int = Field(default=cfg.CONSULTAS_CONCURRENTES, ge=1)
     presupuesto_usd_mes: float = Field(default=30.0, ge=0.0)
-    umbral_similitud: float = Field(default=0.28, ge=0.0, le=1.0)
+    # Calibrado contra el índice del cuadernillo con 30 consultas en tema y 30 fuera: las de
+    # tema arrancan en 0,487 y las no jurídicas no pasan de 0,381. En 0,40 no rechaza ninguna
+    # de tema, con 0,09 de margen, y frena todo lo no jurídico. Entre la arbitrariedad y los
+    # otros temas jurídicos las distribuciones se pisan: esa separación es del clasificador.
+    umbral_similitud: float = Field(default=0.40, ge=0.0, le=1.0)
     # Sin default a propósito: ver `sal_de_visitante`. Un default acá sería un secreto
     # publicado en un repositorio público.
     sal_visitante: Optional[str] = None

@@ -14,6 +14,7 @@ memoria del proceso.
 
 import asyncio
 import json
+import os
 import secrets
 import tempfile
 from contextlib import asynccontextmanager, suppress
@@ -107,6 +108,11 @@ async def ciclo_de_vida(app: FastAPI):
     # cada despliegue se lleva los cupos, el registro y el gasto acumulado del mes.
     print(f"índice en {ajustes.directorio_indice} · estado en {ajustes.archivo_estado}",
           flush=True)
+    # Y con qué usuario corre. `entrypoint.sh` baja a `buscador` después de dejar el volumen
+    # escribible, y un `startCommand` en la configuración de la plataforma lo saltea sin que
+    # nada falle: Railway documenta que el start command reemplaza el ENTRYPOINT, el proceso
+    # queda como root y todo anda igual. Esta línea es lo único que lo delata.
+    print(f"proceso uid={getattr(os, 'getuid', lambda: None)()}", flush=True)
     app.state.estado = Estado(ajustes.archivo_estado)
     app.state.indice = None
     app.state.motor = None

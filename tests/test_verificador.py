@@ -522,3 +522,39 @@ class TestRespaldoDelMismoFallo:
             cita("Fallos: 311:2437")),
             self.leido(), {**LEIDOS, **self.TEXTOS}, self.fragmentos())
         assert "243:190" not in dict(veredicto.pasajes_propios)
+
+
+class TestUnaListaCortada:
+    """La lista de citas que el esquema le corta al modelo se rechaza y no rompe la corrida.
+
+    Medido con «arbitrariedad y error de derecho» sobre el cuadernillo: el investigador copió
+    una lista del corpus, el `max_length` del campo se la cortó en «…; Fallos: » con un espacio
+    al final, y el verificador moría con «la respuesta no cubre 1 de 3 citas». La corrida entera
+    terminaba en error en 1 de cada 4 intentos, en vez de volver a corrección.
+    """
+
+    CORTADA = ("Fallos: 344:1070; FRO 011422/2013/1/RH001; Fallos: 343:919; Fallos: 339:499; "
+               "Fallos: 326:3485; Fallos: 326:297; Fallos: ")
+
+    async def test_no_levanta_error(self):
+        veredicto = await verificar(investigar(
+            cita(self.CORTADA), cita("Fallos: 311:2437"), cita("Fallos: 315:1848")),
+            LEIDO, LEIDOS, FRAGMENTOS)
+        assert veredicto is not None
+
+    async def test_se_rechaza_como_citas_amontonadas(self):
+        veredicto = await verificar(investigar(
+            cita(self.CORTADA), cita("Fallos: 311:2437"), cita("Fallos: 315:1848")),
+            LEIDO, LEIDOS, FRAGMENTOS)
+        assert veredicto.aprobado is False
+        assert any("junta varias citas" in o for o in veredicto.observaciones)
+
+    async def test_el_parser_aguanta_la_cita_sin_recortar(self):
+        # Sin pasar por el validador de `Cita`: el parser del veredicto tiene que resistir solo,
+        # porque la cita que le llega la escribió el modelo.
+        sin_validar = Cita.model_construct(fallo=self.CORTADA, respaldo=RESPALDO,
+                                           afirmacion="Una afirmacion suficientemente larga.")
+        veredicto = await verificar(investigar(
+            sin_validar, cita("Fallos: 311:2437"), cita("Fallos: 315:1848")),
+            LEIDO, LEIDOS, FRAGMENTOS)
+        assert veredicto.aprobado is False

@@ -16,13 +16,13 @@ from app.rag.ingesta.indice import abrir
 CONSULTAS = [
     "exceso ritual manifiesto",
     "arbitrariedad de sentencia por contradiccion",
-    "interes superior del niño",
-    "derecho a la salud y prestaciones",
-    "competencia originaria de la Corte",
-    "libertad de expresion y real malicia",
-    "delitos de lesa humanidad imprescriptibilidad",
-    "derechos de las personas con discapacidad",
-    "sentencia definitiva recurso extraordinario",
+    "apartamiento de las constancias de la causa",
+    "valoracion de la prueba",
+    "afirmaciones dogmaticas",
+    "la Corte no es una tercera instancia",
+    "improcedencia del recurso extraordinario",
+    "omision de pronunciarse sobre cuestiones planteadas",
+    "fundamentacion de la concesion del recurso",
     "Fallos: 311:2437",
 ]
 

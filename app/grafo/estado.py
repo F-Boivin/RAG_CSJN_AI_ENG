@@ -65,6 +65,19 @@ class Cita(BaseModel):
         description=("El pasaje del fragmento que sostiene la afirmación, copiado tal cual. "
                      "Al menos una oración completa."))
 
+    @field_validator("fallo", mode="before")
+    @classmethod
+    def sin_espacios_en_los_bordes(cls, valor):
+        """El fallo llega recortado, porque es la clave con la que el verificador lo busca.
+
+        Con un espacio al final, la corrida entera moría con error: el verificador buscaba la
+        cita tal cual y el parser del veredicto la devolvía recortada, así que la guarda de
+        cobertura la daba por no respondida. Medido sobre el cuadernillo: el modelo copia las
+        listas de citas del corpus, el `max_length` del esquema se las corta y deja un
+        «Fallos: » colgando. Pasó en 1 de 20 consultas, y en 1 de 4 repitiendo esa misma.
+        """
+        return valor.strip() if isinstance(valor, str) else valor
+
 
 class Investigacion(BaseModel):
     """Lo que el agente de investigación deja en el estado."""

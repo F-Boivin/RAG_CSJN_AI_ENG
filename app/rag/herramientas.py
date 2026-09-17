@@ -25,6 +25,7 @@ import json
 
 from chromadb.errors import ChromaError
 from langchain_chroma import Chroma
+from langchain_classic.retrievers import EnsembleRetriever
 from langchain_core.tools import ToolException, tool
 from openai import APIConnectionError, APIError, RateLimitError
 from pydantic import BaseModel, Field
@@ -35,7 +36,7 @@ from app.almacen.consulta import Lexico
 from app.nucleo.errores import ErrorDeAlmacenamiento
 from app.observabilidad.trazas import span_de_recuperacion
 from app.rag import citas as c
-from app.rag.hibrido import RecuperadorPorCuota, crear_hibrido
+from app.rag.hibrido import crear_hibrido
 from app.rag.ingesta.markdown import contar_tokens
 
 NL = chr(10)
@@ -49,7 +50,7 @@ contar_llamadas = c.contar_llamadas
 
 _vectorstore: Chroma | None = None
 _lexico: Lexico | None = None
-_hibrido: RecuperadorPorCuota | None = None
+_hibrido: EnsembleRetriever | None = None
 
 
 def inicializar(vectorstore: Chroma, lexico: Lexico) -> None:
@@ -69,8 +70,8 @@ def inicializar(vectorstore: Chroma, lexico: Lexico) -> None:
     contar_tokens("")
 
 
-def _hibrido_actual() -> RecuperadorPorCuota:
-    """El recuperador por cuota, o el aviso de que faltó inicializar."""
+def _hibrido_actual() -> EnsembleRetriever:
+    """El retriever híbrido, o el aviso de que faltó inicializar."""
     if _hibrido is None:
         raise RuntimeError(msj.ERROR_HERRAMIENTA_NO_INICIALIZADA)
     return _hibrido
@@ -190,10 +191,10 @@ def crear_buscar_doctrina(lectura: "Lectura"):
                               cantidad: int = cfg.RESULTADOS_RECUPERADOS) -> str:
         """Busca doctrina y jurisprudencia de la CSJN en el corpus indexado.
 
-        Usá esta herramienta cuando el usuario pregunte por doctrina, precedentes o
-        criterios de la Corte Suprema: el corpus reúne el cuadernillo sobre sentencias
-        arbitrarias, las notas de jurisprudencia y los suplementos temáticos de la
-        Secretaría de Jurisprudencia. Devuelve fragmentos con su subsección entre
+        Usá esta herramienta cuando el usuario pregunte por la doctrina de la Corte Suprema
+        sobre sentencias arbitrarias: el corpus es el cuadernillo de la Secretaría de
+        Jurisprudencia sobre la arbitrariedad —su concepto, sus causales, la improcedencia
+        del recurso y su trámite—. Devuelve fragmentos con su subsección entre
         corchetes y, debajo de cada uno, los fallos que ese fragmento cita. Busca por
         significado y por palabra exacta a la vez, así que sirve tanto para un tema como
         para un número de fallo escrito literal. No sirve para otras ramas del derecho ni
@@ -205,7 +206,7 @@ def crear_buscar_doctrina(lectura: "Lectura"):
 
         Args:
             consulta: tema o pregunta a buscar (3 a 500 caracteres).
-            cantidad: máximo de fragmentos a devolver (1 a 10; por defecto 8).
+            cantidad: máximo de fragmentos a devolver (1 a 10; por defecto 6).
 
         Returns:
             Fragmentos ordenados por similitud, cada uno con su subsección y sus fallos, y
@@ -216,10 +217,9 @@ def crear_buscar_doctrina(lectura: "Lectura"):
             el problema para que el modelo pueda informarlo.
         """
         try:
-            # La cantidad se le pasa al recuperador en vez de recortarle la salida: el
-            # reparto entre los dos pools del corpus se calcula sobre los lugares que hay, y
-            # un recorte posterior se comería justo los del pool que va último.
-            documentos = await _hibrido_actual().recuperar(consulta, cantidad)
+            # El recorte se aplica sobre la lista ya fusionada: cada retriever aporta más
+            # candidatos justamente para que la fusión tenga de dónde elegir.
+            documentos = (await _hibrido_actual().ainvoke(consulta))[:cantidad]
             padron = await asyncio.to_thread(padron_de_citas)
         except (RateLimitError, APIConnectionError, APIError, ChromaError,
                 ErrorDeAlmacenamiento, OSError) as exc:
@@ -312,12 +312,24 @@ def leer_veredicto(texto: str) -> dict[str, bool]:
     Devuelve la existencia y no la URL. Una cita del cuerpo de la doctrina existe y puede no
     tener link registrado, así que leer la URL como si fuera el veredicto la daría por
     inexistente. Los links los reparte `link_oficial`, que consulta el padrón directo.
+
+    **El estado se busca desde la derecha**, y la cita es todo lo que queda a su izquierda. La
+    cita la escribió el modelo y puede traer cualquier cosa, incluido un «|»; el estado y la
+    URL, en cambio, los escribe `verificar_citas` y nunca lo traen. Partir desde la izquierda
+    y tomar el primer campo como cita cortaba ahí cualquier cita con un «|» adentro.
+
+    La clave sale recortada, igual que `Cita.fallo`, que es contra lo que se la busca.
     """
     veredicto: dict[str, bool] = {}
     for linea in texto.splitlines():
-        partes = [p.strip() for p in linea.split("|")]
-        if len(partes) >= 2:
-            veredicto[partes[0]] = partes[1] == "EXISTE"
+        crudas = linea.split("|")
+        estados = [p.strip() for p in crudas]
+        # «cita | EXISTE | url», «cita | EXISTE» o «cita | NO EXISTE |»: el estado es el último
+        # campo o el anteúltimo, y nunca el primero.
+        for posicion in (len(crudas) - 1, len(crudas) - 2):
+            if posicion >= 1 and estados[posicion] in ("EXISTE", "NO EXISTE"):
+                veredicto["|".join(crudas[:posicion]).strip()] = estados[posicion] == "EXISTE"
+                break
     return veredicto
 
 

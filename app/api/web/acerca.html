@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cómo funciona — Buscador de jurisprudencia de la CSJN</title>
+<title>Cómo funciona — Buscador de doctrina de la CSJN</title>
 <link rel="stylesheet" href="/estatico/estilo.css">
 </head>
 <body>
@@ -14,9 +14,9 @@
 </header>
 <main>
   <h2>El corpus</h2>
-  <p>Todo lo que el buscador responde sale de tres fuentes públicas de la Secretaría de
-  Jurisprudencia de la Corte Suprema: el cuadernillo de doctrina sobre sentencias arbitrarias,
-  las notas de jurisprudencia y los suplementos temáticos.</p>
+  <p>Todo lo que el buscador responde sale del cuadernillo de doctrina sobre sentencias
+  arbitrarias de la Secretaría de Jurisprudencia de la Corte Suprema: el concepto de
+  arbitrariedad, sus causales, la improcedencia del recurso y su trámite.</p>
   <p id="resumen-corpus"></p>
   <table id="tabla-corpus"><thead><tr>
     <th>Documento</th><th>Tipo</th><th>Páginas</th><th>Fragmentos</th>
@@ -43,14 +43,16 @@
   </ol>
 
   <h2>Los links</h2>
-  <p><strong>Ninguna URL sale de un modelo.</strong> Los PDF de la Secretaría traen los links
-  oficiales embebidos, anclados al texto de cada cita, y de ahí sale el padrón. Cuando un
-  documento no enlaza una cita, el link se arma por código con la plantilla oficial de la
-  Corte, a partir del tomo y la página que el corpus escribió.</p>
+  <p><strong>Ninguna URL sale de un modelo.</strong> El cuadernillo trae el link oficial de
+  cada fallo que cita, y de ahí sale el padrón. Cuando un fallo llega sin link, se arma por
+  código con la plantilla oficial de la Corte, a partir del tomo y la página que el corpus
+  escribió.</p>
 
   <h2>Los límites</h2>
-  <p>El buscador responde sobre jurisprudencia de la Corte Suprema y nada más. Una consulta
-  fuera de ese alcance se rechaza antes de correr, para no gastar el presupuesto.</p>
+  <p>El buscador responde sobre la doctrina de la Corte Suprema en materia de sentencias
+  arbitrarias y nada más. Una consulta sobre otro tema —también sobre otros temas de la Corte—
+  se rechaza antes de correr, para no gastar el presupuesto en una respuesta que el corpus no
+  puede dar.</p>
   <p>Cada visitante tiene cinco consultas cada 24 horas, y el sitio tiene un techo diario. Las
   claves las paga una persona; el techo es lo que hace que el buscador siga en pie.</p>
 
@@ -74,7 +76,9 @@
   código, correrlo en tu máquina y publicar tu propia versión, con la condición de que
   compartas los cambios bajo la misma licencia. El
   <a href="https://github.com/F-Boivin/RAG_CSJN_AI_ENG">repositorio</a> está completo: la ingesta,
-  el catálogo de los 128 documentos, los agentes y los tests.</p>
+  los agentes y los tests. También está la ingesta de las notas y los suplementos de la
+  Secretaría, que llegaron a formar parte del corpus: quedaron fuera del índice, con su
+  catálogo listo para volver a sumarlos.</p>
 </main>
 <footer><a href="/">Volver al buscador</a> · <a href="/privacidad">Privacidad</a> · <a href="https://github.com/F-Boivin/RAG_CSJN_AI_ENG">Código fuente</a></footer>
 <script>

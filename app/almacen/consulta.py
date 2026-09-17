@@ -13,7 +13,6 @@ import threading
 import unicodedata
 from difflib import get_close_matches
 from pathlib import Path
-from typing import Optional, Sequence
 
 import app.nucleo.constantes as cfg
 import app.nucleo.mensajes as msj
@@ -138,8 +137,7 @@ class Lexico:
 
     # --- Búsqueda léxica ---
 
-    def buscar(self, consulta: str, cantidad: int,
-               fuentes: Optional[Sequence[str]] = None) -> list[tuple[str, str, dict]]:
+    def buscar(self, consulta: str, cantidad: int) -> list[tuple[str, str, dict]]:
         """Los fragmentos que mejor matchean la consulta, por `bm25()` de FTS5.
 
         `bm25()` devuelve valores negativos y mejor cuanto más negativo, así que el orden es
@@ -150,22 +148,15 @@ class Lexico:
         La consulta se pasa como una lista de términos entre comillas: FTS5 trata los
         operadores (`AND`, `*`, `-`) como sintaxis, y una consulta en lenguaje natural que
         traiga uno de esos caracteres reventaría con un error de sintaxis.
-
-        Con `fuentes`, la búsqueda queda acotada a esos tipos de documento. Es lo que permite
-        que el ensamble consulte los dos pools del corpus por separado y los pese distinto:
-        filtrar después de recuperar no serviría, porque los 24.145 fragmentos de sentencias
-        copan el top-k antes de que haya nada que filtrar.
         """
         expresion = " OR ".join(f'"{t}"' for t in _terminos(consulta))
         if not expresion:
             return []
-        fuentes = tuple(fuentes or ())
-        filtro = f" AND f.fuente IN ({','.join('?' * len(fuentes))})" if fuentes else ""
         filas = self._filas(
             "SELECT f.id, f.texto, f.origen, f.seccion, f.subseccion, f.fuente, f.pagina "
             "FROM fts JOIN fragmentos f ON f.rowid = fts.rowid "
-            f"WHERE fts MATCH ?{filtro} ORDER BY bm25(fts, ?, ?, ?) LIMIT ?",
-            (expresion, *fuentes, *cfg.PESOS_BM25, cantidad),
+            "WHERE fts MATCH ? ORDER BY bm25(fts, ?, ?, ?) LIMIT ?",
+            (expresion, *cfg.PESOS_BM25, cantidad),
         )
         return [
             (f["id"], f["texto"], {

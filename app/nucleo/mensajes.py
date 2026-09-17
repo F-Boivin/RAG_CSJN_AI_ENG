@@ -191,8 +191,8 @@ MENSAJE_SIN_BASE = (
     "consulta con citas verificables. La consulta quedó registrada."
 )
 MENSAJE_FUERA_DE_ALCANCE = (
-    "Este buscador responde sobre jurisprudencia de la Corte Suprema de Justicia de la "
-    "Nación. La consulta quedó fuera de ese alcance."
+    "Este buscador responde sobre la doctrina de la Corte Suprema de Justicia de la Nación en "
+    "materia de sentencias arbitrarias. La consulta quedó fuera de ese alcance."
 )
 MENSAJE_CUOTA_VISITANTE = (
     "Llegaste a las {tope} consultas de las últimas {horas} horas. Volvés a tener "
