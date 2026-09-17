@@ -161,8 +161,8 @@ async def verificar(investigacion: Investigacion,
     afirmadas = citas_distintas(investigacion)
 
     # Una cita por afirmacion. Si el `fallo` amontona varias -"Fallos: 313:1045; 328:4597",
-    # que es como las escribe el cuadernillo-, normalizarlo se queda con la primera y las
-    # demas quedarian por comprobadas sin que nadie las haya mirado.
+    # que es como el modelo copia las listas de citas del corpus-, normalizarlo se queda con la
+    # primera y las demas quedarian por comprobadas sin que nadie las haya mirado.
     amontonadas = sorted({c.fallo for c in investigacion.citas
                           if herramientas.cuantas_citas(c.fallo) > 1})
 
@@ -205,10 +205,12 @@ async def verificar(investigacion: Investigacion,
     sueltas_inventadas = tuple(c for c in de_la_sintesis if not veredicto.get(c))
     sueltas_ajenas = tuple(c for c in de_la_sintesis if veredicto.get(c) and not leyo(c))
 
+    # Una referencia sin tomo y pagina recibe un solo mensaje, el suyo: decirle ademas que "no
+    # figura entre las citas del corpus" la hace parecer un numero mal copiado.
     observaciones = [
         f"'{cita.fallo}' no figura entre las citas del corpus; sostiene: {cita.afirmacion[:90]}"
         for cita in investigacion.citas
-        if cita.fallo in inexistentes
+        if cita.fallo in inexistentes and cita.fallo not in sin_numero
     ]
     observaciones += [
         f"'{cita.fallo}' existe en el corpus pero no salio de ningun fragmento que hayas "
@@ -222,10 +224,16 @@ async def verificar(investigacion: Investigacion,
             f"'{cita}' junta varias citas en una: escribi una cita por afirmacion, con un "
             f"solo numero de fallo"
         )
+    # Casi siempre es una referencia por expediente que el investigador leyo en un fragmento:
+    # el «Recurso Extraordinario» cita asi el 30% de sus fallos. Pedirle que la escriba como
+    # "Fallos: tomo:pagina" lo mandaba a inventarle un tomo y una pagina: medido en tres
+    # consultas, las tres gastaron sus tres correcciones en "E. 287:XLVIII" y parecidas.
     for cita in sin_numero:
         observaciones.append(
-            f"'{cita}' no tiene ningun numero de fallo: escribilo en la forma "
-            f"\"Fallos: tomo:pagina\""
+            f"'{cita}' no es una cita de Fallos: no trae tomo y pagina, y solo se pueden citar "
+            f"fallos publicados en Fallos. Si es una referencia por expediente, no se puede "
+            f"citar: sostene la afirmacion con un fallo de Fallos del mismo fragmento, o sacala. "
+            f"No le inventes un tomo y una pagina"
         )
     for cita in sueltas_inventadas:
         observaciones.append(

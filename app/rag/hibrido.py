@@ -36,7 +36,7 @@ from app.observabilidad.trazas import (
     span_de_recuperacion,
 )
 from app.rag.lexico import RecuperadorLexico, tokenizar  # noqa: F401  (reexporta tokenizar)
-from app.rag.ingesta.markdown import contar_tokens
+from app.rag.ingesta.tokens import contar_tokens
 
 
 class RecuperadorVectorial(BaseRetriever):

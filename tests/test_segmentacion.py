@@ -5,6 +5,8 @@ Las subsecciones son la decisión de diseño que se prueba acá. Un suplemento d
 subsección devolvería miles de citas y dejaría de servir.
 """
 
+import re
+
 import pytest
 
 import app.nucleo.constantes as cfg
@@ -159,6 +161,11 @@ class TestFragmentos:
         assert f["seccion"] == "Derecho a la Salud" and f["pagina"] == 1
         assert f["url_documento"].endswith("/documento")
 
+    def test_sin_indice_impreso_no_hay_encabezado(self, fragmentos):
+        # La cadena de títulos sale de la numeración del índice impreso; los otros métodos
+        # dan un título suelto o un rango de páginas, y el vector se calcula sobre el texto.
+        assert all(f["encabezado"] == "" for f in fragmentos)
+
     def test_solo_lleva_las_citas_que_ese_fragmento_escribe(self, fragmentos):
         # Es lo que hace que la procedencia de una cita sea la subsección y no el documento.
         con_cita = [f for f in fragmentos if "343:2211" in f["citas_urls"]]
@@ -182,3 +189,90 @@ class TestFragmentos:
                                  for n in range(1, 12)])
         fragmentos, _ = segmentacion.fragmentar(doc, FICHA)
         assert fragmentos == []
+
+    def test_cada_fragmento_dice_la_pagina_donde_empieza(self):
+        # Un tramo de diez páginas corta en varios fragmentos, y todos decían la primera.
+        fragmentos, _ = segmentacion.fragmentar(documento(10), FICHA)
+        assert len({f["pagina"] for f in fragmentos}) > 1
+        assert all(f["texto"].startswith(f"Contenido de la pagina {f['pagina']}.")
+                   for f in fragmentos)
+
+    def test_la_pagina_es_la_del_comienzo_aunque_el_fragmento_arrastre_solapamiento(self):
+        # Con párrafos cortos, el splitter repite el final del fragmento anterior al comienzo
+        # del siguiente. Su `start_index` resta ese solapamiento en tokens a una posición en
+        # caracteres, y dejaba el fragmento en la página donde empezaba el anterior.
+        doc = Documento(origen="suplemento-1", titulo="X", paginas=[
+            Pagina(numero=n, texto="\n\n".join(
+                f"Parrafo {i} de la pagina {n} con algo de texto." for i in range(20)))
+            for n in range(1, 7)])
+        fragmentos, _ = segmentacion.fragmentar(doc, FICHA)
+        assert len(fragmentos) > 2
+        assert all(f"de la pagina {f['pagina']} " in f["texto"].split("\n")[0]
+                   for f in fragmentos)
+
+
+def sumarios_con_citas(paginas: int = 4, por_pagina: int = 5) -> Documento:
+    """Sumarios de largos variados, cada uno seguido de su renglón de citas.
+
+    El último sumario de cada página deja sus citas en la página siguiente, como hace el salto
+    de página en los PDF de la Secretaría.
+    """
+    largos = [2, 5, 9, 13, 3, 7, 11]
+    parrafos: dict[int, list[str]] = {n: [] for n in range(1, paginas + 1)}
+    k = 0
+    for n in range(1, paginas + 1):
+        for j in range(por_pagina):
+            frase = f"el recurso {k} no rebate los fundamentos del fallo apelado. "
+            parrafos[n].append(f"Sumario {k} de la pagina {n}: " + frase * largos[k % len(largos)])
+            salta = j == por_pagina - 1 and n < paginas
+            parrafos[n + 1 if salta else n].append(f"Fallos: 3{k:02d}:1{k:02d}")
+            k += 1
+    return Documento(origen="suplemento-1", titulo="Derecho a la Salud", paginas=[
+        Pagina(numero=n, texto="\n\n".join(parrafos[n])) for n in range(1, paginas + 1)])
+
+
+class TestSumariosYSusCitas:
+    """Un sumario y el renglón de sus citas van en el mismo fragmento.
+
+    Entre los dos hay una línea en blanco, y el splitter cortaba ahí: el fragmento siguiente
+    empezaba con citas que no eran de su texto.
+    """
+
+    def test_cada_cita_queda_con_su_sumario(self):
+        fragmentos, _ = segmentacion.fragmentar(sumarios_con_citas(), FICHA)
+        assert len(fragmentos) > 1
+        for k in range(20):
+            con_cita = [f for f in fragmentos if f"3{k:02d}:1{k:02d}" in f["citas_urls"]]
+            assert con_cita, f"la cita del sumario {k} no llegó a ningún fragmento"
+            assert all(f"Sumario {k} " in f["texto"] for f in con_cita)
+
+    def test_ningun_fragmento_empieza_con_citas(self):
+        fragmentos, _ = segmentacion.fragmentar(sumarios_con_citas(), FICHA)
+        assert all(f["texto"].startswith("Sumario") for f in fragmentos)
+
+    def test_sin_pegarlas_el_splitter_las_separa(self, monkeypatch):
+        # El control de los dos tests de arriba: este documento sí hace cortar entre un
+        # sumario y sus citas cuando nada las pega.
+        monkeypatch.setattr(segmentacion, "PATRON_PARRAFO_PEGADO", re.compile(r"(?!)"))
+        fragmentos, _ = segmentacion.fragmentar(sumarios_con_citas(), FICHA)
+        assert any(f["texto"].startswith("Fallos:") for f in fragmentos)
+
+    def test_la_pagina_es_la_del_comienzo_aunque_se_haya_pegado(self):
+        # Pegar quita un salto por párrafo, y las marcas de página se corren con él.
+        fragmentos, _ = segmentacion.fragmentar(sumarios_con_citas(), FICHA)
+        assert all(f"de la pagina {f['pagina']}:" in f["texto"].split("\n")[0]
+                   for f in fragmentos)
+
+    @pytest.mark.parametrize("propio", [
+        "Fallos: 330:3248; Fallos: 316:1189",
+        "FALLO A. 1430. XLIII. REX; Fallos: 312:2151",
+        "-Del dictamen de la Procuración General al que la Corte remite-",
+        "(Disidencia de los jueces Maqueda y Zaffaroni)",
+        "de la Nación, conforme al art. 14 de la ley 48.",
+    ])
+    def test_lo_que_pertenece_al_sumario_se_pega(self, propio):
+        texto = ("Es arbitraria la sentencia que omitio considerar la prueba decisiva ofrecida "
+                 f"por la actora.\n\n{propio}\n\nOtro sumario sobre la misma cuestion federal.")
+        doc = Documento(origen="suplemento-1", titulo="X", paginas=[Pagina(numero=1, texto=texto)])
+        fragmento = segmentacion.fragmentar(doc, FICHA)[0][0]
+        assert f"por la actora.\n{propio}\n\nOtro sumario" in fragmento["texto"]

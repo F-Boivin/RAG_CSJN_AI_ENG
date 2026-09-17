@@ -16,7 +16,6 @@ from typing import Optional
 
 from chromadb.errors import ChromaError
 from langchain_chroma import Chroma
-from langchain_core.documents import Document
 
 import app.nucleo.constantes as cfg
 import app.nucleo.mensajes as msj
@@ -162,23 +161,39 @@ class Constructor:
         Los ids son estables (`origen#0000`), así que reindexar es un upsert y no acumula
         copias. Chroma recibe la metadata escalar; el mapa de citas va en el léxico, que es
         quien responde por el padrón.
+
+        **El vector se calcula con la cadena de títulos del fragmento delante de su texto, y lo
+        que se guarda es el texto solo.** Un sumario casi nunca repite el título que lo agrupa:
+        «¿qué hay que hacer si rechazan el planteo de arbitrariedad?» apunta a la sección
+        «Omisión de interponer recurso de queja ante el rechazo del planteo de arbitrariedad»,
+        y sin el título el vector la dejaba en el puesto 33. Medido con 48 consultas
+        etiquetadas, la subsección que responde entra entre los seis primeros en 19 de las 20
+        del capítulo de sentencias arbitrarias, contra 16 sin los títulos, y en 27 de 28
+        repartidas entre los siete capítulos, contra 26. Con solo el título de la sección, sin
+        la cadena, eran 19 y 26.
+
+        El texto guardado es el que lee el investigador y contra el que el verificador busca
+        cada pasaje, y el lado léxico lo tiene que devolver idéntico para que el ensamble
+        fusione los dos resultados.
         """
         self.borrar_documento(ficha["origen"])
         if not fragmentos:
             self.lexico.registrar_documento({**ficha, "fragmentos": 0})
             return
-        documentos = [
-            Document(
-                page_content=f["texto"],
-                metadata={
-                    **{k: f.get(k) for k in CLAVES_METADATA if f.get(k) is not None},
-                    "citas_urls": json.dumps(f.get("citas_urls") or {}, ensure_ascii=False),
-                },
-            )
+        embebidos = [f"{f['encabezado']}\n\n{f['texto']}" if f.get("encabezado") else f["texto"]
+                     for f in fragmentos]
+        metadatas = [
+            {**{k: f.get(k) for k in CLAVES_METADATA if f.get(k) is not None},
+             "citas_urls": json.dumps(f.get("citas_urls") or {}, ensure_ascii=False)}
             for f in fragmentos
         ]
         try:
-            self.chroma.add_documents(documentos, ids=[f["id"] for f in fragmentos])
+            vectores = self.chroma.embeddings.embed_documents(embebidos)
+            # La API pública de LangChain embebe el mismo texto que guarda; la colección
+            # acepta los dos por separado.
+            self.chroma._collection.upsert(
+                ids=[f["id"] for f in fragmentos], embeddings=vectores,
+                documents=[f["texto"] for f in fragmentos], metadatas=metadatas)
         except (ChromaError, OSError) as exc:
             raise ErrorDeAlmacenamiento(msj.ERROR_VECTORSTORE.format(detalle=exc)) from exc
         self.lexico.escribir_fragmentos(fragmentos)

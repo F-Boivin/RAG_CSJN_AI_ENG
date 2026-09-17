@@ -118,8 +118,6 @@ def fragmentos_del_corpus(ajustes) -> list[dict]:
         )
         todos.extend(segmentacion.fragmentar(documento, ficha)[0])
 
-    from scripts.construir_indice import fragmentos_del_cuadernillo
-    todos.extend(fragmentos_del_cuadernillo())
     return todos
 
 

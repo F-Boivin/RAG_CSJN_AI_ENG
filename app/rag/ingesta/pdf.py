@@ -29,6 +29,9 @@ from app.rag import citas as c
 PATRON_GUION = re.compile(r"(\w)-\n(\w)")
 # Cita partida por el salto de línea del PDF: "Fallos: \n332:111".
 PATRON_CITA_PARTIDA = re.compile(r"(\d)\s*\n\s*:\s*(\d)|(\d)\s*:\s*\n\s*(\d)")
+# La fecha de corte que un documento escribe en su tapa: "Actualizado al 10/09/2026".
+PATRON_ACTUALIZACION = re.compile(r"Actualizad[oa] al (\d{1,2}/\d{1,2}/\d{4})")
+PAGINAS_DE_TAPA = 3
 
 
 @dataclass
@@ -116,6 +119,19 @@ def _extraer_pagina(pagina) -> tuple[Pagina, int]:
             citas_urls[cita] = url or citas_urls.get(cita, "")
     return Pagina(numero=pagina.number + 1, texto=normalizar(pagina.get_text()),
                   citas_urls=citas_urls, titulos=_titulos_de(pagina)), desacuerdos
+
+
+def fecha_de_actualizacion(textos: list[str]) -> str:
+    """La fecha de corte que declaran las primeras páginas, o vacío si no declaran ninguna.
+
+    Los endpoints no exponen fecha ni versión de un documento. El «Recurso Extraordinario» la
+    escribe en su tapa, y es lo que le dice al lector hasta cuándo llega la doctrina reunida.
+    """
+    for texto in textos[:PAGINAS_DE_TAPA]:
+        hallada = PATRON_ACTUALIZACION.search(texto or "")
+        if hallada:
+            return hallada.group(1)
+    return ""
 
 
 def normalizar(texto: str) -> str:

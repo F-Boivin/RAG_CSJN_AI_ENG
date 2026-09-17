@@ -45,7 +45,7 @@ tomo de la cita anterior, y nunca cites un caso solo por su nombre.
 - Fundamenta la respuesta: invoca al menos {minimas} de las citas verificadas.
 - No inventes numeros de fallo para "redondear" una afirmacion. Si algo no tiene respaldo en \
 el material, decilo sin cita o no lo digas.
-- Escribi en prosa, para alguien que sabe derecho pero no leyo el cuadernillo. Sin titulos, \
+- Escribi en prosa, para alguien que sabe derecho pero no leyo el material. Sin titulos, \
 sin vinetas y sin repetir la pregunta.
 
 Tu mensaje final tiene que ser la respuesta y nada mas: ni comentarios sobre tu proceso, ni \
@@ -92,9 +92,10 @@ def auditar_citas(texto: str, verificadas) -> tuple[tuple[str, ...], tuple[str, 
     en vez de buscar cualquier `numero:numero` suelto. Esa decisión se tomó midiendo las dos
     alternativas: sin ancla, "la audiencia de las 14:30" y "el voto 3:2" se marcaban como citas
     inventadas y disparaban reescrituras que nunca convergen; con ancla, además se caza la
-    página abreviada ("Fallos: 315:356 y 3334"), que es como cita el propio cuadernillo y por
-    lo tanto la forma que el modelo tiende a imitar. Los links oficiales tampoco disparan el
-    ancla: ninguna de las 557 URLs del corpus contiene la palabra (medido).
+    página abreviada ("Fallos: 315:356 y 3334"), que es como citaba el cuadernillo y por lo
+    tanto la forma que el modelo tiende a imitar. Los links oficiales tampoco disparan el
+    ancla: 167 de las 2.402 URLs del corpus dicen «buscarSumariosFallo», y ninguna se lee como
+    cita (medido).
     """
     aprobadas = {herramientas.normalizar_cita(c) for c in verificadas} - {""}
     del_texto = herramientas.citas_del_texto(texto)

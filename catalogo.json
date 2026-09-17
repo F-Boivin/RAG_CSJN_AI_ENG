@@ -756,6 +756,15 @@
     "indexar": false
   },
   {
+    "origen": "suplemento-3",
+    "tipo": "suplemento",
+    "id": 3,
+    "titulo": "Recurso Extraordinario",
+    "categoria": "Recurso Extraordinario",
+    "url": "https://sj.csjn.gov.ar/homeSJ/suplementos/suplemento/3/documento",
+    "indexar": true
+  },
+  {
     "origen": "suplemento-4",
     "tipo": "suplemento",
     "id": 4,

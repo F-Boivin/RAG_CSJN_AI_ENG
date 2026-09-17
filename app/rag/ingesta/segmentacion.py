@@ -1,49 +1,84 @@
 """De un PDF extraído a los fragmentos que entran al índice.
 
-Dos decisiones viven acá. La primera es cómo se corta el texto: el mismo splitter por tokens
-que el cuadernillo, con los separadores que un PDF sí tiene (los `---` del markdown no
-existen en un PDF).
+Dos decisiones viven acá. La primera es cómo se corta el texto: un splitter por tokens que
+corta primero en el párrafo doble, con cada sumario pegado a sus citas para que el corte
+caiga entre sumarios.
 
 La segunda son las subsecciones. Son la procedencia que acompaña a cada cita en la respuesta,
 y con una sola para un suplemento de 862 páginas esa procedencia no diría nada.
-Se resuelven en cascada —outline del PDF, títulos por tipografía, bloques de páginas— y el
-método elegido queda anotado en la ficha del documento, así se puede mirar cuál cayó al
-fallback.
+Se resuelven en cascada —índice impreso, outline del PDF, títulos por tipografía, bloques de
+páginas— y el método elegido queda anotado en la ficha del documento, así se puede mirar cuál
+cayó al fallback.
 
-El nombre lleva siempre el prefijo del documento. `resolver_subseccion` devuelve None ante dos
+El nombre lleva el prefijo del documento. `resolver_subseccion` devuelve None ante dos
 candidatos con la misma clave normalizada, y con ~800 nombres los "Introducción" de distintos
-suplementos colisionarían sin prefijo.
+suplementos colisionarían sin prefijo. La excepción es el índice impreso: su numeración ya
+distingue cada título dentro del documento («6.2.2 Apartamiento de las constancias de la
+causa»), y el prefijo repetiría el título del documento en cada ficha. Con un segundo
+documento de índice impreso en el corpus, el prefijo vuelve a hacer falta.
 """
 
+import re
 from dataclasses import dataclass
 
 import app.nucleo.constantes as cfg
 from app.rag import citas as c
-from app.rag.ingesta.markdown import contar_tokens, crear_splitter
+from app.rag.ingesta import indice_impreso
+from app.rag.ingesta.tokens import contar_tokens, crear_splitter
 from app.rag.ingesta.pdf import Documento
+
+INDICE_IMPRESO = "indice_impreso"
+# Lo que sigue a un sumario y le pertenece: sus citas ("Fallos: 312:2151; ...", "FALLO A.
+# 1430. XLIII. REX; ..."), la nota del dictamen, un voto o disidencia entre paréntesis, y el
+# final de un párrafo partido por el salto de página.
+PATRON_PARRAFO_PEGADO = re.compile(r"^(?:Fallos:|FALLO\b|[-–]\s*Del dictamen|\(|[a-záéíóúüñ])")
 
 
 @dataclass
 class Tramo:
-    """Un pedazo del documento bajo un mismo título, con el rango de páginas que abarca."""
+    """Un pedazo del documento bajo un mismo título, con el rango de páginas que abarca.
+
+    Cuando el corte cae a mitad de página, el tramo trae su propio `texto`, y `marcas` dice en
+    qué posición de ese texto empieza cada página. Un texto propio vacío es un título seguido
+    de otro título. Sin texto propio (`None`), el tramo son sus páginas enteras.
+    """
 
     nombre: str
     desde: int
     hasta: int
+    texto: str | None = None
+    marcas: tuple[tuple[int, int], ...] = ()
+    seccion: str = ""
+    encabezado: str = ""
 
 
 def subsecciones(documento: Documento) -> tuple[list[Tramo], str]:
     """Los tramos del documento y el método con que se detectaron.
 
-    La cascada, en orden: el outline del PDF si sus entradas son cortas; los títulos que la
-    tipografía marca; y bloques de páginas. Los tres devuelven lo mismo, así que el resto de
-    la ingesta no distingue de dónde salieron.
+    La cascada, en orden: el índice impreso en las primeras páginas; el outline del PDF si sus
+    entradas son cortas; los títulos que la tipografía marca; y bloques de páginas. Los cuatro
+    devuelven lo mismo, así que el resto de la ingesta no distingue de dónde salieron.
     """
-    for metodo, detectar in (("outline", _por_outline), ("titulos", _por_titulos)):
+    for metodo, detectar in ((INDICE_IMPRESO, _por_indice_impreso), ("outline", _por_outline),
+                             ("titulos", _por_titulos)):
         tramos = detectar(documento)
         if tramos:
             return tramos, metodo
     return _por_bloques(documento), "bloques"
+
+
+def _por_indice_impreso(documento: Documento) -> list[Tramo]:
+    """Los tramos que marcan los títulos del índice escrito en las primeras páginas.
+
+    Cada tramo corta en el renglón del título, así que trae su propio texto; la sección es el
+    capítulo que lo contiene, y el encabezado, la cadena de títulos que `indice.Constructor`
+    embebe junto al texto.
+    """
+    return [
+        Tramo(nombre=s.nombre, desde=s.desde, hasta=s.hasta, texto=s.texto, marcas=s.marcas,
+              seccion=s.capitulo, encabezado=s.encabezado)
+        for s in indice_impreso.secciones(documento)
+    ]
 
 
 def _por_outline(documento: Documento) -> list[Tramo]:
@@ -140,19 +175,26 @@ def fragmentar(documento: Documento, ficha: dict) -> tuple[list[dict], str]:
     """
     tramos, metodo = subsecciones(documento)
     enlazadas = documento.citas_urls
-    splitter = crear_splitter(separadores=cfg.SEPARADORES_PDF)
+    splitter = crear_splitter()
     por_pagina = {p.numero: p for p in documento.paginas}
 
     fragmentos: list[dict] = []
     for tramo in tramos:
-        paginas = [por_pagina[n] for n in range(tramo.desde, tramo.hasta + 1)
-                   if n in por_pagina]
-        texto = "\n\n".join(p.texto for p in paginas if p.texto).strip()
+        texto, marcas = _pegar_al_parrafo_anterior(*_texto_del_tramo(tramo, por_pagina))
         if not texto:
             continue
-        nombre = _nombre_completo(ficha.get("titulo", ""), tramo.nombre)
-        for pedazo in splitter.split_text(texto):
-            pedazo = pedazo.strip()
+        nombre = (tramo.nombre if metodo == INDICE_IMPRESO
+                  else _nombre_completo(ficha.get("titulo", ""), tramo.nombre))
+        pagina, desde = tramo.desde, 0
+        for crudo in splitter.split_text(texto):
+            # La posición se busca a partir del comienzo del pedazo anterior. El `start_index`
+            # del splitter resta el solapamiento en tokens a una posición en caracteres, y en
+            # el «Recurso Extraordinario» dejaba 4 de 1.268 fragmentos en otra página.
+            posicion = texto.find(crudo, desde)
+            if posicion >= 0:
+                desde = posicion + 1
+            pagina = _pagina_en(marcas, posicion, pagina)
+            pedazo = crudo.strip()
             if not sirve(pedazo):
                 continue
             del_texto = c.citas_del_texto(pedazo)
@@ -162,13 +204,74 @@ def fragmentar(documento: Documento, ficha: dict) -> tuple[list[dict], str]:
             fragmentos.append({
                 "id": f"{documento.origen}#{len(fragmentos):04d}",
                 "origen": documento.origen,
-                "seccion": ficha.get("titulo", ""),
+                "seccion": tramo.seccion or ficha.get("titulo", ""),
                 "subseccion": nombre,
                 "fuente": ficha.get("tipo", ""),
-                "pagina": paginas[0].numero if paginas else None,
+                "pagina": pagina,
                 "url_documento": ficha.get("url", ""),
                 "texto": pedazo,
+                "encabezado": tramo.encabezado,
                 "tokens": contar_tokens(pedazo),
                 "citas_urls": citas_urls,
             })
     return fragmentos, metodo
+
+
+def _texto_del_tramo(tramo: Tramo, por_pagina: dict) -> tuple[str, tuple[tuple[int, int], ...]]:
+    """El texto del tramo y la posición donde empieza cada una de sus páginas."""
+    if tramo.texto is not None:
+        return tramo.texto, tramo.marcas
+    texto, marcas = "", []
+    for numero in range(tramo.desde, tramo.hasta + 1):
+        pagina = por_pagina.get(numero)
+        trozo = pagina.texto.strip() if pagina else ""
+        if not trozo:
+            continue
+        if texto:
+            texto += "\n\n"
+        marcas.append((len(texto), numero))
+        texto += trozo
+    return texto, tuple(marcas)
+
+
+def _pegar_al_parrafo_anterior(texto: str, marcas: tuple[tuple[int, int], ...]
+                               ) -> tuple[str, tuple[tuple[int, int], ...]]:
+    """Pega a su párrafo anterior lo que no se sostiene solo.
+
+    Un sumario de la Secretaría es un párrafo seguido del renglón con sus citas, y entre los
+    dos hay una línea en blanco: el splitter los toma como dos párrafos y corta entre uno y
+    otro. Medido sobre el «Recurso Extraordinario», 750 de 1.257 fragmentos empezaban con las
+    citas del sumario que había quedado en el fragmento anterior, y quien lee ese fragmento se
+    las atribuye al sumario que sigue. Cuando esas citas caían solas al final de una sección,
+    el filtro de calidad las descartaba por cortas, y 12 citas del documento no llegaban a
+    ningún fragmento.
+
+    Se pegan con un salto simple el renglón de citas, la nota del dictamen de la Procuración,
+    los votos y disidencias entre paréntesis, y el final de un párrafo que un salto de página
+    partió, que empieza en minúscula. Así el corte cae entre sumarios.
+    """
+    partes = texto.split("\n\n")
+    pegado = partes[0]
+    quitados: list[int] = []
+    original = len(partes[0])
+    for parte in partes[1:]:
+        if PATRON_PARRAFO_PEGADO.match(parte):
+            pegado += "\n" + parte
+            quitados.append(original)
+        else:
+            pegado += "\n\n" + parte
+        original += 2 + len(parte)
+    corridas = tuple((inicio - sum(1 for q in quitados if q < inicio), pagina)
+                     for inicio, pagina in marcas)
+    return pegado, corridas
+
+
+def _pagina_en(marcas: tuple[tuple[int, int], ...], posicion: int, anterior: int) -> int:
+    """La página donde empieza un pedazo, por su posición en el texto del tramo.
+
+    Un tramo de diez páginas corta en muchos fragmentos, y cada uno dice la página donde
+    empieza, no la primera del tramo.
+    """
+    if posicion < 0:
+        return anterior
+    return max((pagina for inicio, pagina in marcas if inicio <= posicion), default=anterior)

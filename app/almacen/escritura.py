@@ -23,7 +23,8 @@ def claves_de_padron(citas_urls: dict) -> dict[str, str]:
     **El padrón se lee siempre por la forma normalizada** —`existe`, `link` y el evento de cita
     pasan por `normalizar_cita`—, así que guardarlo con la clave cruda deja la entrada
     inalcanzable. Cada fuente escribe la cita a su manera: los hipervínculos de los PDF ya
-    vienen normalizados, pero el cuadernillo la escribe como la imprimió («Fallos: 112:384»).
+    vienen normalizados, pero el cuadernillo en markdown la escribía como la imprimió
+    («Fallos: 112:384»).
     Medido sobre el índice construido antes de este arreglo: 557 claves sin normalizar, y 330
     de ellas sin gemela normalizada, o sea 330 citas reales del corpus que el verificador daba
     por inventadas y que, de pasar, se publicaban sin link.
@@ -135,11 +136,11 @@ class EscritorLexico:
             self._conexion.execute(
                 "INSERT OR REPLACE INTO documentos "
                 "(origen, tipo, titulo, categoria, url, sha256, paginas, fragmentos, "
-                " metodo_subsecciones) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " metodo_subsecciones, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (ficha["origen"], ficha.get("tipo", ""), ficha.get("titulo", ""),
                  ficha.get("categoria", ""), ficha.get("url", ""), ficha.get("sha256", ""),
                  ficha.get("paginas", 0), ficha.get("fragmentos", 0),
-                 ficha.get("metodo_subsecciones", "")),
+                 ficha.get("metodo_subsecciones", ""), ficha.get("actualizado", "")),
             )
             self._conexion.commit()
         except sqlite3.Error as exc:

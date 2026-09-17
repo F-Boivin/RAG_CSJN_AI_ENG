@@ -101,36 +101,29 @@ class ClienteSJ:
         return dict(cfg.CATEGORIAS_SUPLEMENTOS)
 
     def catalogar(self) -> list[dict]:
-        """Las 124 entradas del catálogo: las 82 notas y los 42 suplementos.
+        """El catálogo: las notas, los suplementos de cada categoría y los que no se listan.
 
-        Cada entrada dice si va al índice. Los 15 tomos del Archivo Histórico entran al
-        catálogo con `indexar: False`: son transcripciones sin un solo hipervínculo, y
-        sumarlos más adelante es cambiar esa bandera.
+        Cada entrada dice si va al índice, según `ORIGENES_INDEXADOS`: lo que queda afuera
+        sigue catalogado, y sumarlo es agregar su origen a esa lista. Los documentos de
+        `DOCUMENTOS_SIN_LISTADO` entran aunque el sitio no los liste en ninguna categoría.
         """
         self._abrir_sesion()
-        entradas = []
-        for nota in self._pedir(cfg.URL_NOTAS).json():
-            entradas.append({
-                "origen": f"nota-{nota['id']}",
-                "tipo": "nota",
-                "id": nota["id"],
-                "titulo": (nota.get("titulo") or "").strip(),
-                "categoria": "Notas de jurisprudencia",
-                "url": cfg.URL_NOTA_PDF.format(id=nota["id"]),
-                "indexar": True,
-            })
+        entradas = [
+            _entrada("nota", nota["id"], nota.get("titulo"), "Notas de jurisprudencia")
+            for nota in self._pedir(cfg.URL_NOTAS).json()
+        ]
         for numero, nombre in self.categorias().items():
             url = cfg.URL_SUPLEMENTOS_CATEGORIA.format(categoria=numero)
-            for suplemento in self._pedir(url).json():
-                entradas.append({
-                    "origen": f"suplemento-{suplemento['id']}",
-                    "tipo": "suplemento",
-                    "id": suplemento["id"],
-                    "titulo": (suplemento.get("titulo") or "").strip(),
-                    "categoria": nombre,
-                    "url": cfg.URL_SUPLEMENTO_PDF.format(id=suplemento["id"]),
-                    "indexar": numero not in cfg.CATEGORIAS_EXCLUIDAS,
-                })
+            entradas.extend(
+                _entrada("suplemento", suplemento["id"], suplemento.get("titulo"), nombre)
+                for suplemento in self._pedir(url).json()
+            )
+        listados = {e["origen"] for e in entradas}
+        for declarado in cfg.DOCUMENTOS_SIN_LISTADO:
+            entrada = _entrada(declarado["tipo"], declarado["id"], declarado["titulo"],
+                               declarado["categoria"])
+            if entrada["origen"] not in listados:
+                entradas.append(entrada)
         return entradas
 
     # --- Descarga ---
@@ -150,6 +143,21 @@ class ClienteSJ:
             raise ErrorRAG(msj.ERROR_NO_ES_PDF.format(
                 url=url, estado=respuesta.status_code, tipo=tipo or "(ninguno)"))
         return cuerpo
+
+
+def _entrada(tipo: str, identificador: int, titulo: str | None, categoria: str) -> dict:
+    """Una entrada del catálogo, con su URL y con si va al índice."""
+    origen = f"{tipo}-{identificador}"
+    plantilla = cfg.URL_NOTA_PDF if tipo == "nota" else cfg.URL_SUPLEMENTO_PDF
+    return {
+        "origen": origen,
+        "tipo": tipo,
+        "id": identificador,
+        "titulo": (titulo or "").strip(),
+        "categoria": categoria,
+        "url": plantilla.format(id=identificador),
+        "indexar": origen in cfg.ORIGENES_INDEXADOS,
+    }
 
 
 def guardar_catalogo(entradas: list[dict], ruta: Path) -> None:

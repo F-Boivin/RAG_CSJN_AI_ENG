@@ -366,6 +366,25 @@ class TestIngestaIncremental:
         assert Lexico(ruta, solo_lectura=True).padron() == {}
 
 
+class TestFichaDelDocumento:
+    """Lo que la página «Acerca de» muestra de cada documento sale de su ficha."""
+
+    def test_la_ficha_guarda_la_fecha_de_actualizacion(self, tmp_path):
+        ruta = tmp_path / "lexico.sqlite3"
+        with EscritorLexico(ruta) as escritor:
+            escritor.registrar_documento({
+                "origen": "suplemento-3", "tipo": "suplemento", "titulo": "Recurso Extraordinario",
+                "paginas": 704, "fragmentos": 1268, "metodo_subsecciones": "indice_impreso",
+                "actualizado": "10/09/2026"})
+        (ficha,) = Lexico(ruta, solo_lectura=True).documentos()
+        assert ficha["actualizado"] == "10/09/2026"
+        assert ficha["metodo_subsecciones"] == "indice_impreso"
+
+    def test_un_documento_sin_fecha_queda_con_el_campo_vacio(self, lexico):
+        (ficha,) = lexico.documentos()
+        assert ficha["actualizado"] == ""
+
+
 @pytest.fixture
 def estado(tmp_path) -> Estado:
     return Estado(tmp_path / "estado.sqlite3")

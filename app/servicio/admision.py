@@ -7,16 +7,21 @@ dos centavos para llegar ahí.
 Dos capas que corren a la vez y tienen que coincidir:
 
 1. **El piso de recuperación**: se embebe la consulta una vez y se mira la mejor similitud del
-   corpus. Cuesta ~USD 0,000002. Frena lo que no es jurídico, y nada más: entre la
-   arbitrariedad y los otros temas del derecho las similitudes se pisan.
+   corpus. Cuesta ~USD 0,000002. Frena lo más ajeno cuando el clasificador no responde, y nada
+   más: una consulta en tema de una o dos palabras («ley 48», «per saltum») puntúa por debajo
+   de preguntas que no son jurídicas.
 2. **El clasificador**: una llamada a `gpt-4o-mini` con salida estructurada, ~USD 0,00006. Es
-   el que separa la arbitrariedad del resto de la jurisprudencia de la Corte.
+   el que separa el recurso extraordinario del resto de la jurisprudencia de la Corte y de lo
+   que no es jurídico.
 
-Medido contra el índice del cuadernillo, con 30 consultas en tema y 30 fuera —doce de ellas
-sobre temas de la Corte que el corpus tuvo hasta que se quedó solo con el cuadernillo—: las dos
-capas juntas admiten 30 de 30 y rechazan 30 de 30. La primera versión del prompt rechazaba dos
-consultas del cuadernillo que no nombraban la palabra «arbitrariedad», y por eso el prompt lista
-la estructura del cuadernillo y pide admitir ante la duda sobre el recurso extraordinario.
+Medido contra el índice del «Recurso Extraordinario», con 30 consultas en tema repartidas entre
+sus siete capítulos y 30 fuera —doce sobre el fondo de otros temas de la Corte, diez de otro
+derecho o de un caso propio, ocho no jurídicas—: las dos capas juntas admiten 30 de 30 y
+rechazan 30 de 30. El clasificador acierta además las 24 consultas de una o dos palabras con
+que se eligió el umbral. La primera versión del prompt nombraba los capítulos en abstracto y
+rechazaba cuatro consultas en tema —«qué es el exceso ritual manifiesto», «qué dice el artículo
+14 de la ley 48», «doctrina de los fallos Strada y Di Mascio», «¿una medida cautelar es
+sentencia definitiva?»—, y por eso el prompt nombra causales, normas y fallos.
 
 Se admite cuando las dos pasan, y el motivo que ve la persona lo escribe el clasificador. Van
 antes de crear la corrida, así una consulta fuera de tema no consume cupo de consultas —solo
@@ -33,26 +38,29 @@ import app.nucleo.mensajes as msj
 from app.nucleo.config import obtener_ajustes
 from app.nucleo.modelos import crear_chat
 
-PROMPT_ADMISION = """Sos el filtro de alcance de un buscador sobre la doctrina de la Corte Suprema de Justicia de la Nación Argentina en materia de sentencias arbitrarias.
+PROMPT_ADMISION = """Sos el filtro de alcance de un buscador sobre la doctrina de la Corte Suprema de Justicia de la Nación Argentina acerca del recurso extraordinario federal.
 
-El buscador responde con el cuadernillo de la Secretaría de Jurisprudencia sobre la arbitrariedad, que trata:
-- la doctrina: su origen, su carácter excepcional, que la Corte no es una tercera instancia, y la diferencia entre arbitrariedad y error;
-- las causales: falta de fundamentación, afirmaciones dogmáticas, apartamiento de las constancias de la causa, valoración de hechos y prueba, omisión de extremos conducentes, interpretación errónea o apartamiento de la norma aplicable, excesos u omisiones en el pronunciamiento, exceso ritual manifiesto y contradicción;
-- la improcedencia del recurso por arbitrariedad;
-- el trámite: la fundamentación de la concesión por el tribunal a quo, el recurso de queja, y la relación y el orden entre la cuestión federal y la arbitrariedad.
+El buscador responde con «Recurso Extraordinario», la obra de la Secretaría de Jurisprudencia que reúne esa doctrina en siete capítulos:
+- interposición: quiénes pueden interponerlo, ante quién, el plazo, la fundamentación del escrito y los requisitos formales de la acordada 4/2007 (carátula, páginas, renglones);
+- trámite: el traslado, la concesión o denegación por el tribunal de la causa, la vista al fiscal, las facultades de la Corte, el art. 280 del Código Procesal Civil y Comercial y la caducidad de instancia;
+- cuestión federal: los supuestos del art. 14 de la ley 48, las cuestiones insustanciales, la gravedad institucional, la relación directa, la resolución contraria, y cuándo y cómo se introduce y se mantiene;
+- sentencia definitiva: qué resoluciones lo son o se equiparan —medidas cautelares, amparos, nulidades, cuestiones de competencia, ejecución de sentencia, entre otras—, el gravamen de imposible reparación ulterior y las sentencias incompletas;
+- superior tribunal de la causa: los tribunales superiores de provincia (los fallos «Strada» y «Di Mascio»), las cámaras, la casación penal («Giroldi», «Di Nunzio», «Casal») y el recurso por salto de instancia o per saltum;
+- sentencias arbitrarias: la doctrina, sus causales —falta de fundamentación, afirmaciones dogmáticas, apartamiento de las constancias de la causa, valoración de la prueba, exceso ritual manifiesto, contradicción, entre otras— y la improcedencia del planteo;
+- recurso de queja: contra qué procede, el plazo, el depósito previo y sus exenciones, y su trámite.
 
-Admitís una consulta si pregunta por algo de eso, aunque esté mal redactada, use términos vagos o no nombre la palabra «arbitrariedad». Ante la duda con una pregunta sobre el recurso extraordinario o sobre cómo revisa la Corte las sentencias de otros tribunales, admitila.
+Admitís una consulta si pregunta por algo de eso, aunque esté mal redactada, sea de una o dos palabras, use términos vagos o no nombre el recurso extraordinario. Una pregunta por el texto o el alcance de las normas que regulan el recurso —el art. 14 de la ley 48, los artículos del Código Procesal Civil y Comercial sobre el recurso extraordinario y la queja, la acordada 4/2007— está en tema. Ante la duda con una pregunta sobre cómo se llega a la Corte Suprema o cómo revisa la Corte las sentencias de otros tribunales, admitila.
 
-Rechazás una consulta sobre otros temas de la Corte —derechos del niño, tributos, salud, ambiente, lesa humanidad, competencia originaria, entre otros—: el buscador no tiene esos materiales, y admitirla es prometer una respuesta que no puede dar. Rechazás también si pide asesoramiento sobre un caso propio, si pregunta por hechos actuales, o si no es una pregunta jurídica.
+Rechazás una consulta sobre el fondo de otros temas que la Corte resolvió —derechos del niño, tributos, jubilaciones, salud, ambiente, lesa humanidad, libertad de expresión, entre otros— o sobre su competencia originaria: el buscador no tiene esos materiales, y admitirla es prometer una respuesta que no puede dar. Rechazás también si pide asesoramiento sobre un caso propio, si pregunta por hechos actuales, o si no es una pregunta jurídica.
 
-Devolvé el motivo en una oración, dirigida a quien preguntó. Cuando rechazás por tema, decí que el buscador trata solo la doctrina de la Corte sobre sentencias arbitrarias."""
+Devolvé el motivo en una oración, dirigida a quien preguntó. Cuando rechazás por tema, decí que el buscador trata solo la doctrina de la Corte sobre el recurso extraordinario federal."""
 
 
 class Admision(BaseModel):
     """El veredicto del clasificador."""
 
     admitida: bool = Field(
-        description="Si la consulta busca la doctrina de la CSJN sobre sentencias arbitrarias.")
+        description="Si la consulta busca la doctrina de la CSJN sobre el recurso extraordinario.")
     motivo: str = Field(min_length=3, max_length=300,
                         description="Por qué, en una oración para quien preguntó.")
 

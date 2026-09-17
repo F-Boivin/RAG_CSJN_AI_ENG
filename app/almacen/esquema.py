@@ -73,7 +73,8 @@ CREATE TABLE IF NOT EXISTS documentos (
     sha256      TEXT NOT NULL DEFAULT '',
     paginas     INTEGER NOT NULL DEFAULT 0,
     fragmentos  INTEGER NOT NULL DEFAULT 0,
-    metodo_subsecciones TEXT NOT NULL DEFAULT ''
+    metodo_subsecciones TEXT NOT NULL DEFAULT '',
+    actualizado TEXT NOT NULL DEFAULT ''
 );
 """
 

@@ -10,28 +10,25 @@ from pathlib import Path
 # La raíz del repositorio: constantes.py vive en app/nucleo/.
 RAIZ = Path(__file__).parent.parent.parent
 
-# --- Corpus en markdown (el cuadernillo) ---
-DIRECTORIO_DATA = RAIZ / "data"
-PATRON_DOCUMENTOS = "*.md"
-
-# --- Chunking: los extractos de doctrina son indivisibles ---
+# --- Chunking ---
 TAMANO_CHUNK_TOKENS = 500
 SOLAPAMIENTO_CHUNK_TOKENS = 50
-# El primer separador es el límite entre extractos de doctrina: el splitter parte ahí
-# antes que en cualquier otro lado, así ningún extracto se corta al medio.
-SEPARADOR_EXTRACTOS = "\n\n---\n\n"
-SEPARADORES = [SEPARADOR_EXTRACTOS, "\n\n", "\n", " ", ""]
-# Los PDF no traen el separador de extractos: el corte más grueso disponible es el
-# párrafo doble.
+# El corte más grueso que un PDF ofrece es el párrafo doble. Cada sumario llega al splitter
+# pegado a sus citas (`segmentacion._pegar_al_parrafo_anterior`), así que ese corte cae entre
+# sumarios.
 SEPARADORES_PDF = ["\n\n\n", "\n\n", "\n", " ", ""]
-ETIQUETA_FUENTE = "Fuente:"
 METRICA_DISTANCIA = {"hnsw:space": "cosine"}
 
 # --- Recuperación ---
-# Seis fragmentos. Medido sobre el cuadernillo con 20 consultas etiquetadas por subsección: con
-# cuatro, la subsección que responde entra al top-k en 16 de 20; con seis y con ocho, en 19. Seis
-# da la misma cobertura que ocho con un cuarto menos de contexto, y la peor consulta del conjunto
-# sigue leyendo diez citas propias.
+# Seis fragmentos. Medido sobre el «Recurso Extraordinario» con 48 consultas etiquetadas por
+# subsección: 28 repartidas entre los siete capítulos y 20 del de sentencias arbitrarias. La
+# subsección que responde entra al top-k en 27 de 28 y en 19 de 20, igual con cuatro, seis u
+# ocho. Lo que cambia son las citas que se leen: la peor consulta trae 1 cita propia con cuatro,
+# 2 con seis y 5 con ocho, y la redacción pide al menos 2 verificadas. Seis llega a ese piso con
+# un cuarto menos de contexto que ocho.
+#
+# Sobre el cuadernillo, con esas mismas 20 del capítulo, cuatro dejaba afuera más consultas que
+# seis y ocho, que empataban.
 #
 # El corpus llegó a tener 128 documentos, con notas y suplementos, y ahí la recuperación repartía
 # lugares entre dos pools para que el volumen de los suplementos no tapara la doctrina. Esa
@@ -157,12 +154,16 @@ CATEGORIAS_SUPLEMENTOS = {
     18: "Derechos de las Personas con Discapacidad",
     19: "Restitución internacional de Niños, Niñas y Adolescentes",
 }
-# Categorías que entran al catálogo y quedan fuera del índice. El «Archivo Histórico» estuvo
-# acá mientras se lo creyó un conjunto de transcripciones; son 15 suplementos temáticos de
-# ediciones 2009-2016 sobre temas que ningún otro documento cubre —Competencia Originaria,
-# Decretos de Necesidad y Urgencia, Habeas Corpus, Derecho Electoral, entre otros—, sin
-# hipervínculos pero con sus citas recuperables del texto, igual que la serie Ambiental.
-CATEGORIAS_EXCLUIDAS: set[int] = set()
+# Lo que va al índice: el «Recurso Extraordinario». Las notas y los demás suplementos quedan
+# en el catálogo con `indexar: false`, con su ingesta intacta: sumar uno es agregar su origen.
+ORIGENES_INDEXADOS = frozenset({"suplemento-3"})
+# Documentos que el sitio sirve y no lista en ninguna categoría. El «Recurso Extraordinario»
+# no aparece en ninguno de los 17 listados, así que volver a catalogar sin declararlo acá lo
+# sacaría del catálogo.
+DOCUMENTOS_SIN_LISTADO = (
+    {"tipo": "suplemento", "id": 3, "titulo": "Recurso Extraordinario",
+     "categoria": "Recurso Extraordinario"},
+)
 
 # --- Ingesta ---
 SEGUNDOS_ENTRE_DESCARGAS = 1.0
@@ -180,6 +181,15 @@ MAXIMO_PAGINAS_POR_SUBSECCION = 25
 # Cuando no hay outline ni títulos detectables, se corta por bloques de páginas.
 PAGINAS_POR_BLOQUE = 10
 SEPARADOR_SUBSECCION = " · "
+# El índice impreso se busca en las primeras páginas, y una página es de índice si trae al
+# menos estos renglones con puntos guía ("Quienes pueden interponerlo ........ 17").
+PAGINAS_CON_INDICE_IMPRESO = 30
+RENGLONES_MINIMOS_DE_INDICE = 5
+# Cuántas páginas puede caer un título del cuerpo lejos de la que declara el índice impreso.
+# En el «Recurso Extraordinario», de 500 títulos, 482 están en esa página y 18 en la siguiente.
+DESFASE_MAXIMO_DE_TITULO = 2
+# Un título largo se parte en renglones en el cuerpo: ahí, 12 de los 500 ocupan dos.
+RENGLONES_MAXIMOS_DE_TITULO = 3
 
 # --- Servicio ---
 CONSULTAS_CONCURRENTES = 3      # corridas del grafo simultáneas en el único proceso

@@ -6,10 +6,6 @@ uso.
 """
 
 # --- Ingesta ---
-MENSAJE_SIN_DATASET = (
-    "No hay documentos {patron} en {ruta}. El corpus viaja en el repositorio: si la "
-    "carpeta está vacía, la copia del repo quedó incompleta."
-)
 MENSAJE_INDICE_EXISTENTE = (
     "Índice existente en {ruta}: {cantidad} fragmentos ya indexados, no se reindexa."
 )
@@ -39,6 +35,17 @@ ERROR_CATALOGO_AUSENTE = (
     "Falta {ruta}. Corré `python -m scripts.construir_indice catalogar` para armarlo."
 )
 ERROR_PDF_ILEGIBLE = "No se pudo abrir el PDF de {origen}: {detalle}"
+ERROR_INDICE_IMPRESO_ILEGIBLE = (
+    "No se pudo leer el índice impreso de {origen} en «{renglon}»: {motivo}. Cortar sin ese "
+    "título dejaría el texto que le sigue con la subsección equivocada."
+)
+MOTIVO_NUMERACION_SALTEADA = "la numeración no sigue a «{anterior}»"
+MOTIVO_RENGLON_SIN_PAGINA = "el índice termina sin la página de ese título"
+ERROR_TITULO_SIN_UBICAR = (
+    "El índice impreso de {origen} pone «{titulo}» en la página {pagina}, y el texto no lo trae "
+    "a {margen} páginas o menos de ahí. Si el documento cambió de edición, revisá ese título: "
+    "cortar sin él dejaría el texto que le sigue con la subsección equivocada."
+)
 
 # --- Índice ---
 ERROR_INDICE_AUSENTE = (
@@ -108,10 +115,6 @@ ERROR_CONEXION = "No se pudo conectar con la API del proveedor: {detalle}"
 ERROR_API = "La API del proveedor devolvió un error: {detalle}"
 ERROR_VECTORSTORE = "Error de la base vectorial: {detalle}"
 ERROR_ALMACEN = "Error del almacén SQLite: {detalle}"
-ERROR_LECTURA_DATASET = "No se pudo leer {archivo} del dataset: {detalle}"
-ERROR_DOCUMENTO_VACIO = (
-    "El documento {archivo} de data/ está vacío. Restaurá el corpus desde el repositorio."
-)
 ERROR_HERRAMIENTA_BASE = (
     "La base de conocimiento no está disponible ({detalle}). "
     "Informale el problema al usuario o intentá de nuevo más tarde."
@@ -191,8 +194,8 @@ MENSAJE_SIN_BASE = (
     "consulta con citas verificables. La consulta quedó registrada."
 )
 MENSAJE_FUERA_DE_ALCANCE = (
-    "Este buscador responde sobre la doctrina de la Corte Suprema de Justicia de la Nación en "
-    "materia de sentencias arbitrarias. La consulta quedó fuera de ese alcance."
+    "Este buscador responde sobre la doctrina de la Corte Suprema de Justicia de la Nación "
+    "acerca del recurso extraordinario federal. La consulta quedó fuera de ese alcance."
 )
 MENSAJE_CUOTA_VISITANTE = (
     "Llegaste a las {tope} consultas de las últimas {horas} horas. Volvés a tener "

@@ -100,8 +100,26 @@ class TestRechazos:
         veredicto = await verificar(investigar(cita("la doctrina de Colalillo"),
                                                cita("Fallos: 311:2437")), LEIDO, LEIDOS, FRAGMENTOS)
         assert veredicto.aprobado is False
-        assert any("no tiene ningun numero de fallo" in o for o in veredicto.observaciones)
+        assert any("no es una cita de Fallos" in o for o in veredicto.observaciones)
         assert not any("junta varias citas" in o for o in veredicto.observaciones)
+
+    async def test_una_referencia_por_expediente_no_se_manda_a_reescribir(self):
+        # El «Recurso Extraordinario» cita por expediente el 30% de sus fallos, y el
+        # investigador los lee en los fragmentos. Pedirle que la escriba como "Fallos:
+        # tomo:pagina" lo mandaba a inventarle un tomo y una pagina: "E. 287:XLVIII".
+        veredicto = await verificar(investigar(cita("FALLO CSJ 002637/2022/RH001"),
+                                               cita("Fallos: 311:2437")), LEIDO, LEIDOS, FRAGMENTOS)
+        (observacion,) = [o for o in veredicto.observaciones if "002637" in o]
+        assert veredicto.aprobado is False
+        assert "no se puede citar" in observacion and "No le inventes" in observacion
+        assert "escribilo en la forma" not in observacion
+
+    async def test_la_referencia_sin_numero_recibe_un_solo_mensaje(self):
+        # "No figura entre las citas del corpus" la haria parecer un numero mal copiado.
+        veredicto = await verificar(investigar(cita("Fallos: E. 280. XLIV. REX"),
+                                               cita("Fallos: 311:2437")), LEIDO, LEIDOS, FRAGMENTOS)
+        assert len([o for o in veredicto.observaciones if "E. 280" in o]) == 1
+        assert veredicto.inexistentes == ("Fallos: E. 280. XLIV. REX",)
 
     async def test_una_cita_suelta_en_la_prosa_tambien_se_comprueba(self):
         # La síntesis es el material del que redacta el último agente: un número escrito al

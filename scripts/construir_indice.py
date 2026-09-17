@@ -25,7 +25,6 @@ from app.nucleo.errores import ErrorRAG
 from app.rag.ingesta import fuentes_csjn as fuentes
 from app.rag.ingesta import pdf, segmentacion
 from app.rag.ingesta.indice import Constructor
-from app.rag.ingesta.markdown import leer_documentos
 
 ETAPAS = ("catalogar", "descargar", "extraer", "segmentar", "indexar")
 RUTA_CATALOGO = cfg.RAIZ / "catalogo.json"
@@ -38,7 +37,7 @@ def _cache(ajustes, *partes: str) -> Path:
 
 
 def catalogar(ajustes, forzar: bool) -> list[dict]:
-    """Etapa 1: el catálogo de los 124 documentos, versionado en el repositorio."""
+    """Etapa 1: el catálogo de documentos, versionado en el repositorio."""
     if RUTA_CATALOGO.exists() and not forzar:
         entradas = fuentes.leer_catalogo(RUTA_CATALOGO)
         print(f"catálogo: {len(entradas)} documentos (de {RUTA_CATALOGO.name})")
@@ -132,62 +131,29 @@ def segmentar(entradas: list[dict], extraidos: dict[str, dict]) -> dict[str, tup
     return resultado
 
 
-def fragmentos_del_cuadernillo() -> list[dict]:
-    """Los fragmentos del corpus markdown que ya estaba indexado.
-
-    Entra por el mismo camino que los PDF: el índice no distingue de dónde viene un fragmento,
-    solo su metadata `fuente`.
-    """
-    from app.rag.ingesta.markdown import fragmentar as fragmentar_markdown
-
-    documentos = leer_documentos()
-    fragmentos = []
-    for doc in fragmentar_markdown(documentos):
-        origen = f"cuadernillo-{Path(doc.metadata['origen']).stem}"
-        fragmentos.append({
-            "id": f"{origen}#{len([f for f in fragmentos if f['origen'] == origen]):04d}",
-            "origen": origen,
-            "seccion": doc.metadata.get("seccion", ""),
-            "subseccion": doc.metadata.get("subseccion", ""),
-            "fuente": "cuadernillo",
-            "pagina": None,
-            "url_documento": "",
-            "texto": doc.page_content,
-            "tokens": doc.metadata.get("tokens", 0),
-            "citas_urls": json.loads(doc.metadata.get("citas_urls", "{}")),
-        })
-    return fragmentos
-
-
 def indexar(ajustes, entradas: list[dict], segmentados: dict, extraidos: dict) -> dict:
     """Etapa 5: Chroma y el índice léxico, documento por documento."""
     comienzo = time.monotonic()
     por_origen = {e["origen"]: e for e in entradas}
+    actualizados: dict[str, str] = {}
     with Constructor(ajustes.directorio_indice) as constructor:
-        # El cuadernillo entra primero: es el corpus que ya estaba y da el piso del padrón.
-        del_cuadernillo = fragmentos_del_cuadernillo()
-        for origen in sorted({f["origen"] for f in del_cuadernillo}):
-            propios = [f for f in del_cuadernillo if f["origen"] == origen]
-            constructor.indexar_documento(propios, {
-                "origen": origen, "tipo": "cuadernillo",
-                "titulo": propios[0]["seccion"], "categoria": "Cuadernillo de doctrina",
-                "url": "", "sha256": "", "paginas": 0,
-                "metodo_subsecciones": "markdown",
-            })
-            print(f"  indexado {origen}: {len(propios)} fragmentos")
-
         for origen, (fragmentos, metodo) in segmentados.items():
-            ficha = por_origen[origen]
+            paginas = extraidos[origen]["paginas"]
+            # La fecha de corte que el documento declara viaja en su ficha y en el manifiesto:
+            # es lo que dice hasta cuándo llega la doctrina que el índice reúne.
+            actualizado = pdf.fecha_de_actualizacion([p["texto"] for p in paginas])
+            if actualizado:
+                actualizados[origen] = actualizado
             constructor.indexar_documento(fragmentos, {
-                **ficha, "paginas": len(extraidos[origen]["paginas"]),
-                "metodo_subsecciones": metodo,
+                **por_origen[origen], "paginas": len(paginas),
+                "metodo_subsecciones": metodo, "actualizado": actualizado,
             })
             print(f"  indexado {origen}: {len(fragmentos)} fragmentos ({metodo})")
 
-        total = sum(len(f) for f, _ in segmentados.values()) + len(del_cuadernillo)
         manifiesto = constructor.cerrar_indice({
-            "documentos": len(segmentados) + len({f["origen"] for f in del_cuadernillo}),
-            "fragmentos": total,
+            "documentos": len(segmentados),
+            "fragmentos": sum(len(f) for f, _ in segmentados.values()),
+            "actualizado": actualizados,
             "desacuerdos_ancla_url": sum(e["desacuerdos"] for e in extraidos.values()),
             "huella": fuentes.huella(
                 json.dumps(sorted((o, e.get("sha256", ""))
@@ -208,8 +174,6 @@ def main(argv=None) -> int:
     parser.add_argument("--etapa", choices=ETAPAS, default="indexar",
                         help="hasta qué etapa correr (por defecto, todas)")
     parser.add_argument("--forzar", action="store_true", help="ignora la caché")
-    parser.add_argument("--sin-cuadernillo", action="store_true",
-                        help="deja fuera el corpus markdown")
     args = parser.parse_args(argv)
 
     hasta = ETAPAS.index(args.etapa)

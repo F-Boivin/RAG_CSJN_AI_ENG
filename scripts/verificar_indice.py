@@ -3,28 +3,29 @@
     python -m scripts.verificar_indice
 
 Corre consultas conocidas contra el índice y controla lo que tiene que cumplirse siempre: que
-la búsqueda devuelva fragmentos, que las citas del padrón resuelvan a una URL oficial, y que
-las subsecciones se puedan resolver por el nombre que un modelo escribiría.
+las citas del padrón resuelvan a una URL oficial, que una cita buscada por su número traiga el
+fragmento que la escribe, y que cada capítulo del «Recurso Extraordinario» sea alcanzable: su
+consulta tiene que traer, entre los cuatro primeros, un fragmento de ese capítulo.
 """
 
 import sys
-from pathlib import Path
 
 from app.nucleo.config import cargar_entorno
 from app.rag.ingesta.indice import abrir
 
+# Una consulta por capítulo, con el capítulo que la responde.
 CONSULTAS = [
-    "exceso ritual manifiesto",
-    "arbitrariedad de sentencia por contradiccion",
-    "apartamiento de las constancias de la causa",
-    "valoracion de la prueba",
-    "afirmaciones dogmaticas",
-    "la Corte no es una tercera instancia",
-    "improcedencia del recurso extraordinario",
-    "omision de pronunciarse sobre cuestiones planteadas",
-    "fundamentacion de la concesion del recurso",
-    "Fallos: 311:2437",
+    ("escrito de interposicion firmado solo por el letrado patrocinante", "1 Interposición"),
+    ("traslado del recurso extraordinario a la contraparte", "2 Trámite"),
+    ("interpretacion de normas federales como cuestion federal simple", "3 Cuestión federal"),
+    ("gravamen de imposible reparacion ulterior", "4 Sentencia definitiva"),
+    ("superior tribunal de provincia y el art. 14 de la ley 48", "5 Superior Tribunal de la Causa"),
+    ("exceso ritual manifiesto", "6 Sentencias arbitrarias"),
+    ("deposito previo del recurso de queja", "7 Recurso de Queja"),
 ]
+# El primer sumario del documento, en «1.1.1 Quienes pueden interponerlo».
+CITA_CONOCIDA = "312:2151"
+TOPE = 4
 
 
 def main() -> int:
@@ -38,26 +39,28 @@ def main() -> int:
     sin_link = [c for c, u in padron.items() if not u]
     print(f"índice:      {lexico.cantidad_fragmentos()} fragmentos · "
           f"{len(lexico.documentos())} documentos · huella {indice.version}")
+    for documento in lexico.documentos():
+        print(f"             {documento['origen']} · {documento['titulo']} · "
+              f"actualizado al {documento.get('actualizado') or '(sin fecha)'}")
     print(f"padrón:      {len(padron)} citas · {len(sin_link)} sin link")
     print(f"subsecciones: {len(lexico.subsecciones())}")
     if sin_link:
         fallos.append(f"{len(sin_link)} citas del padrón quedaron sin link oficial")
 
-    print("\nbúsqueda léxica:")
-    for consulta in CONSULTAS:
-        encontrados = lexico.buscar(consulta, 4)
-        print(f"  {len(encontrados)}  {consulta}")
-        if not encontrados:
-            fallos.append(f"la consulta «{consulta}» no devolvió ningún fragmento")
+    print("\nun capítulo por consulta:")
+    for consulta, capitulo in CONSULTAS:
+        secciones = [m["seccion"] for _, _, m in lexico.buscar(consulta, TOPE)]
+        marca = "ok " if capitulo in secciones else "NO "
+        print(f"  {marca} {capitulo:32} ← {consulta}")
+        if capitulo not in secciones:
+            fallos.append(f"«{consulta}» no trae ningún fragmento de «{capitulo}» "
+                          f"entre los {TOPE} primeros: {secciones}")
 
-    print("\nresolución de subsecciones:")
-    for nombre in lexico.subsecciones()[:5]:
-        sin_tildes = nombre.lower()
-        resuelta = lexico.resolver_subseccion(sin_tildes)
-        marca = "ok " if resuelta == nombre else "NO "
-        print(f"  {marca} {nombre[:70]}")
-        if resuelta != nombre:
-            fallos.append(f"«{nombre}» no resuelve desde su forma normalizada")
+    con_la_cita = [t for _, t, _ in lexico.buscar(f"Fallos: {CITA_CONOCIDA}", TOPE)
+                   if CITA_CONOCIDA in t]
+    print(f"\nla cita {CITA_CONOCIDA}: {len(con_la_cita)} fragmento(s) que la escriben")
+    if not con_la_cita:
+        fallos.append(f"buscar «Fallos: {CITA_CONOCIDA}» no trae el fragmento que la escribe")
 
     if fallos:
         print("\nPROBLEMAS:")

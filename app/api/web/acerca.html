@@ -14,9 +14,14 @@
 </header>
 <main>
   <h2>El corpus</h2>
-  <p>Todo lo que el buscador responde sale del cuadernillo de doctrina sobre sentencias
-  arbitrarias de la Secretaría de Jurisprudencia de la Corte Suprema: el concepto de
-  arbitrariedad, sus causales, la improcedencia del recurso y su trámite.</p>
+  <p>Todo lo que el buscador responde sale de «Recurso Extraordinario», la obra en la que la
+  Secretaría de Jurisprudencia de la Corte Suprema reúne la doctrina de la Corte sobre ese
+  recurso, en siete capítulos: interposición, trámite, cuestión federal, sentencia definitiva,
+  superior tribunal de la causa, sentencias arbitrarias y recurso de queja. La Secretaría la
+  publica también en <a href="https://sjconsulta.csjn.gov.ar/sjconsulta/rex/indice.html">versión
+  online</a>.</p>
+  <p>El texto se corta por los títulos del índice de la obra, así que cada cita dice de qué
+  sección salió: «5.5.4 Tribunal intermedio», «7.5.2 Fundamento y exigencia».</p>
   <p id="resumen-corpus"></p>
   <table id="tabla-corpus"><thead><tr>
     <th>Documento</th><th>Tipo</th><th>Páginas</th><th>Fragmentos</th>
@@ -43,16 +48,19 @@
   </ol>
 
   <h2>Los links</h2>
-  <p><strong>Ninguna URL sale de un modelo.</strong> El cuadernillo trae el link oficial de
+  <p><strong>Ninguna URL sale de un modelo.</strong> La obra trae el link oficial de
   cada fallo que cita, y de ahí sale el padrón. Cuando un fallo llega sin link, se arma por
   código con la plantilla oficial de la Corte, a partir del tomo y la página que el corpus
   escribió.</p>
 
   <h2>Los límites</h2>
-  <p>El buscador responde sobre la doctrina de la Corte Suprema en materia de sentencias
-  arbitrarias y nada más. Una consulta sobre otro tema —también sobre otros temas de la Corte—
-  se rechaza antes de correr, para no gastar el presupuesto en una respuesta que el corpus no
-  puede dar.</p>
+  <p>El buscador responde sobre la doctrina de la Corte Suprema acerca del recurso
+  extraordinario federal y nada más. Una consulta sobre otro tema —también sobre el fondo de
+  otros temas que la Corte resolvió— se rechaza antes de correr, para no gastar el presupuesto
+  en una respuesta que el corpus no puede dar.</p>
+  <p>Hay fallos que la obra cita por número de expediente y no por su publicación en Fallos,
+  como los más recientes. El buscador los lee, pero no los puede citar: el control de las citas
+  trabaja con tomo y página.</p>
   <p>Cada visitante tiene cinco consultas cada 24 horas, y el sitio tiene un techo diario. Las
   claves las paga una persona; el techo es lo que hace que el buscador siga en pie.</p>
 
@@ -87,7 +95,8 @@ fetch("/corpus").then(r => r.json()).then(d => {
   const paginas = docs.reduce((a, x) => a + (x.paginas || 0), 0);
   const frags = docs.reduce((a, x) => a + (x.fragmentos || 0), 0);
   document.getElementById("resumen-corpus").textContent =
-    `${docs.length} documentos · ${paginas.toLocaleString("es-AR")} páginas · ` +
+    `${docs.length} ${docs.length === 1 ? "documento" : "documentos"} · ` +
+    `${paginas.toLocaleString("es-AR")} páginas · ` +
     `${frags.toLocaleString("es-AR")} fragmentos indexados.`;
   // Con nodos y no con una plantilla: el título y la URL de cada documento salen del JSON
   // que publica la Secretaría, o sea de afuera de este proyecto.
@@ -108,6 +117,11 @@ fetch("/corpus").then(r => r.json()).then(d => {
       a.rel = "noopener noreferrer";
       a.textContent = doc.titulo;
       titulo = a;
+    }
+    if (doc.actualizado) {
+      const envoltorio = document.createElement("span");
+      envoltorio.append(titulo, ` · actualizado al ${doc.actualizado}`);
+      titulo = envoltorio;
     }
     fila.append(celda(titulo), celda(doc.tipo),
                 celda(doc.paginas || "—"), celda(String(doc.fragmentos)));

@@ -1,8 +1,8 @@
 # RAG_CSJN_AI_ENG
 
-Buscador público sobre la doctrina de la Corte Suprema de Justicia de la Nación en materia de
-sentencias arbitrarias. Cualquiera entra, pregunta en lenguaje natural, y recibe una respuesta
-con citas de fallos reales y sus links oficiales.
+Buscador público sobre la doctrina de la Corte Suprema de Justicia de la Nación acerca del
+recurso extraordinario federal. Cualquiera entra, pregunta en lenguaje natural, y recibe una
+respuesta con citas de fallos reales y sus links oficiales.
 
 **En línea:** [rag-csjn.up.railway.app](https://rag-csjn.up.railway.app)
 
@@ -62,8 +62,7 @@ afirmación y su link oficial, sin el pasaje a la vista, y la telemetría cuenta
 
 **Y esto es lo que le da al buscador la respuesta «no tengo esto».** Sin citas que sobrevivan
 las tres comprobaciones no se llega al mínimo, y el desenlace es sin base suficiente. Una
-consulta sobre jurisprudencia de la Corte en materia de criptomonedas —dentro del alcance, y
-fuera de lo que el corpus trata— termina ahí.
+consulta que la admisión deja pasar y que el corpus no alcanza a sostener termina ahí.
 
 **Ninguna URL sale de un modelo.** Los PDF de la Secretaría de Jurisprudencia traen los links
 oficiales embebidos, anclados al texto de cada cita, y de ahí sale el padrón. Cuando un
@@ -95,17 +94,31 @@ primera corrección con dos fallos distintos.
 
 ## El corpus
 
-El **cuadernillo de doctrina sobre sentencias arbitrarias** de la Secretaría de Jurisprudencia
-de la CSJN, en cuatro documentos: el concepto de arbitrariedad, sus causales, la improcedencia
-del recurso y su trámite.
+**«Recurso Extraordinario»**, la obra en la que la Secretaría de Jurisprudencia de la CSJN
+reúne la doctrina de la Corte sobre ese recurso, en siete capítulos: interposición, trámite,
+cuestión federal, sentencia definitiva, superior tribunal de la causa, sentencias arbitrarias y
+recurso de queja. El sitio la sirve como suplemento 3 y no la lista en ninguna de sus 17
+categorías, así que el catálogo la declara aparte (`DOCUMENTOS_SIN_LISTADO`) para que volver a
+catalogar no la pierda.
 
 | | |
 |---|---|
-| documentos | 4 |
-| fragmentos | 322 |
-| subsecciones | 27 |
-| citas en el padrón | 557, todas con su link oficial, que trae el propio cuadernillo |
-| índice | 8 MB en disco |
+| documentos | 1, actualizado al 10/09/2026 |
+| páginas | 704 |
+| fragmentos | 1.268 |
+| subsecciones | 392 con texto, de los 500 títulos de su índice impreso |
+| citas en el padrón | 2.402, todas con link oficial: 2.361 del propio PDF y 41 armadas con la plantilla |
+| índice | 29 MB en disco |
+
+La fecha de corte sale de la tapa del PDF y viaja en la ficha del documento y en el manifiesto.
+
+### El cuadernillo, fuera del índice
+
+Hasta septiembre de 2026 el corpus fue el **cuadernillo de doctrina sobre sentencias
+arbitrarias**: 4 documentos en markdown, 322 fragmentos, 27 subsecciones y 557 citas. Es el
+capítulo 6 de la obra: sus 557 citas están en el capítulo 6 de la edición actual, que suma 51
+más, y sus 27 subsecciones existen con el mismo nombre. Indexar los dos duplicaría ese capítulo,
+así que el cuadernillo salió del repositorio; queda en el historial de git.
 
 ### Las notas y los suplementos, fuera del índice
 
@@ -212,21 +225,41 @@ sistema muestra debajo de cada cita, y con una sola para todo el documento esa p
 diría nada. Se resuelven en cascada, y el método elegido queda anotado en la ficha de cada
 documento:
 
-Sobre el corpus real: 24 documentos se segmentaron por tipografía, 1 por outline y 99 por
-bloques de páginas. El fallback domina porque 75 de las 82 notas tienen 7 páginas de mediana
-y un solo tema, así que su título ya dice de qué tratan, y porque los tomos del Archivo
-Histórico son transcripciones sin jerarquía tipográfica. Entre los suplementos temáticos, que
-son los largos y sí están titulados, 16 de 27 se segmentaron por tipografía.
-
-1. El outline del PDF, si sus entradas son de menos de 25 páginas.
-2. Los títulos que marca la tipografía: tamaño por encima de la mediana del cuerpo —ponderada
+1. **El índice impreso**, si el documento lo trae en sus primeras páginas.
+2. El outline del PDF, si sus entradas son de menos de 25 páginas.
+3. Los títulos que marca la tipografía: tamaño por encima de la mediana del cuerpo —ponderada
    por caracteres, para que el cuerpo domine— o negrita, con un filtro de forma que descarta
    el renglón suelto y la cita destacada.
-3. Bloques de páginas: `"págs. 41-50"`.
+4. Bloques de páginas: `"págs. 41-50"`.
 
-El nombre lleva siempre el prefijo del documento (`"Migraciones 2024 · 13.3 Beneficio de
-litigar sin gastos"`). Con ~800 subsecciones, los "Introducción" de distintos suplementos
-colisionarían sin él.
+**El «Recurso Extraordinario» se corta por su índice impreso.** No trae outline, y la cascada
+sin el primer paso lo partía en bloques de diez páginas: 1.156 fragmentos con subsecciones
+como «págs. 421-430». Cortar por página tampoco alcanza, porque 136 de sus 292 páginas con
+títulos tienen más de uno. Cada uno de los 500 títulos del índice se busca renglón por renglón
+en el cuerpo, en orden, y el texto se corta en el renglón donde aparece: están los 500, 482 en
+la página que declara el índice y 18 en la siguiente, y 12 ocupan dos renglones. Controlado
+aparte, contra el texto corrido del documento, los 1.268 fragmentos caen entre su título y el
+siguiente, y cada uno dice la página donde empieza.
+
+El nombre es el del índice, «6.2.2 Apartamiento de las constancias de la causa», y la sección
+es el capítulo. Un título del índice que no aparece en el cuerpo, o una numeración que saltea,
+cortan la ingesta con error: una edición nueva que cambie un título no puede caer en silencio a
+otro método, porque el texto que le sigue quedaría con la subsección equivocada.
+
+**Cada sumario va con sus citas.** Un sumario de la Secretaría es un párrafo seguido del renglón
+con sus citas, separados por una línea en blanco, y el splitter cortaba entre los dos: **750 de
+1.257 fragmentos empezaban con las citas del sumario que había quedado en el fragmento
+anterior**, y quien lee ese fragmento se las atribuye al sumario que sigue. Cuando esas citas
+caían solas al final de una sección, el filtro de calidad las descartaba por cortas y 12 no
+llegaban a ningún fragmento. Ahora el renglón de citas, la nota del dictamen, los votos entre
+paréntesis y el final de un párrafo partido por el salto de página se pegan a su párrafo antes
+de cortar: ningún fragmento empieza con citas, y de las 2.404 citas del texto quedan afuera 2,
+que están en una lista de decenas de expedientes que el filtro descarta.
+
+En los otros métodos el nombre lleva el prefijo del documento (`"Migraciones 2024 · 13.3
+Beneficio de litigar sin gastos"`): con ~800 subsecciones, los "Introducción" de distintos
+suplementos colisionarían sin él. Con el corpus de 128 documentos, 24 se segmentaron por
+tipografía, 1 por outline y 99 por bloques de páginas.
 
 ---
 
@@ -255,7 +288,34 @@ Railway
   entre párrafos parecidos. `tokenchars ':'` mantiene `316:2343` como un token.
 - **Vectorial**, sobre Chroma con distancia coseno. Encuentra la consulta parafraseada.
 
-Los dos pesan igual.
+Los dos pesan igual, y cada uno aporta 10 candidatos a la fusión, que devuelve 6.
+
+**El vector de cada fragmento lleva delante la cadena de títulos de su sección**, y el texto
+guardado no la lleva. Un sumario casi nunca repite el título que lo agrupa: «¿qué hay que hacer
+si rechazan el planteo de arbitrariedad?» apunta a la sección «Omisión de interponer recurso de
+queja ante el rechazo del planteo de arbitrariedad», y sin el título el vector la dejaba en el
+puesto 33. El texto guardado es el que lee el investigador y contra el que el verificador busca
+cada pasaje, y los dos lados del ensamble lo tienen que devolver idéntico para que la fusión
+reconozca el mismo fragmento. Medido sobre el «Recurso Extraordinario» con 48 consultas
+etiquetadas por subsección, cuántas traen la que responde entre los seis primeros:
+
+| | 20 del capítulo de sentencias arbitrarias | 28 de los siete capítulos |
+|---|---|---|
+| sin títulos | 16 | 26 |
+| la cadena de títulos en la columna de título del léxico | 16 | 26 |
+| solo el título de la sección en el vector | 19 | 26 |
+| **la cadena de títulos en el vector** | **19** | **27** |
+
+Sobre el cuadernillo, esas 20 del capítulo daban 20. Las dos que siguen afuera tienen su causa a
+la vista: «omisión de pronunciarse sobre cuestiones oportunamente planteadas» trae la
+resolución contraria implícita del capítulo de cuestión federal, que usa las mismas palabras
+para otra doctrina, y «¿puede la Corte tratar agravios que el tribunal no concedió?» trae la
+ambigüedad del a quo al conceder, que es doctrina vecina.
+
+**Seis resultados.** Con cuatro, seis u ocho entran las mismas consultas; lo que cambia son las
+citas que se leen. La peor consulta trae 1 cita propia con cuatro, 2 con seis y 5 con ocho, y
+la redacción pide al menos 2 verificadas: seis llega a ese piso con un cuarto menos de contexto
+que ocho.
 
 El índice léxico tiene tres columnas —texto, citas y **título**— y el título pesa el triple.
 Sin esa columna, una consulta que nombra un tema compite solo contra el cuerpo de los
@@ -264,7 +324,8 @@ recurso extraordinario traía transcripciones de fallos ambientales, que lo menc
 página, antes que la doctrina que lo explica. Las palabras vacías tampoco entran a la búsqueda,
 por lo mismo.
 
-Medido con 26 consultas etiquetadas (`scripts.medir_lexico`), precisión en el top-4:
+Medido con el corpus de 128 documentos y 26 consultas etiquetadas (`scripts.medir_lexico`),
+precisión en el top-4:
 
 | | sin la columna de título | con ella |
 |---|---|---|
@@ -310,7 +371,8 @@ entra en el contenedor.
 —`existe`, `link` y el evento de cita pasan por `normalizar_cita`—, así que una entrada
 guardada con la forma cruda queda inalcanzable aunque tenga su URL oficial adentro. Cada fuente
 escribe la cita a su manera: los hipervínculos de los PDF ya vienen normalizados, y el
-cuadernillo la escribe como la imprimió, «Fallos: 112:384». Medido sobre un índice construido
+cuadernillo en markdown la escribía como la imprimió, «Fallos: 112:384». Medido sobre un índice
+construido
 sin este control: 557 claves sin normalizar, **330 de ellas sin gemela**, o sea 330 citas
 reales del corpus que el verificador daba por inventadas —rechazando la investigación entera y
 quemando una corrección— y que, de pasar, se publicaban sin link. Por la misma puerta entraban
@@ -378,22 +440,33 @@ invariante que vive en otros módulos: con nodos, la página no depende de que n
 
 ### De tema
 
-El alcance es la doctrina de la Corte sobre sentencias arbitrarias. Dos capas, antes de crear
-la corrida, en `app/servicio/admision.py`:
+El alcance es la doctrina de la Corte sobre el recurso extraordinario federal. Dos capas, antes
+de crear la corrida, en `app/servicio/admision.py`:
 
-1. **Piso de similitud** sobre el corpus (~USD 0,000002). Frena lo que no es jurídico.
-2. **Clasificador** de una llamada con salida estructurada (~USD 0,00006). Separa la
-   arbitrariedad del resto de la jurisprudencia de la Corte, que es donde las similitudes se
-   pisan.
+1. **Piso de similitud** sobre el corpus (~USD 0,000002). Frena lo más ajeno cuando el
+   clasificador no responde.
+2. **Clasificador** de una llamada con salida estructurada (~USD 0,00006). Separa el recurso
+   extraordinario del fondo de los otros temas de la Corte y de lo que no es jurídico.
 
-Se admite cuando las dos pasan. Calibrado contra el índice del cuadernillo con 30 consultas en
-tema y 30 fuera, doce de ellas sobre temas de la Corte que el corpus tuvo antes: las consultas
-de tema arrancan en 0,487 de similitud y las no jurídicas no pasan de 0,381, así que el umbral
-quedó en 0,40. Las dos capas juntas admiten 30 de 30 y rechazan 30 de 30. La primera versión
-del prompt rechazaba dos consultas del cuadernillo que no nombraban la palabra
-«arbitrariedad»; el prompt ahora lista la estructura del cuadernillo. Una consulta fuera de tema ya falla cerrada sin este control
-—cero citas, el verificador rechaza, tres reintentos—; lo que la admisión evita es pagar
-cuarenta segundos para llegar ahí.
+Se admite cuando las dos pasan. Calibrado contra el índice del «Recurso Extraordinario» con 30
+consultas en tema, repartidas entre los siete capítulos, y 30 fuera: doce sobre el fondo de
+otros temas de la Corte, diez de otro derecho o de un caso propio y ocho no jurídicas. **Las dos
+capas juntas admiten 30 de 30 y rechazan 30 de 30**, y el clasificador acierta además 24
+consultas de una o dos palabras.
+
+La primera versión del prompt nombraba los siete capítulos en abstracto y rechazaba cuatro
+consultas en tema: «qué es el exceso ritual manifiesto», «qué dice el artículo 14 de la ley 48»,
+«doctrina de los fallos Strada y Di Mascio» y «¿una medida cautelar es sentencia definitiva?».
+El prompt ahora nombra causales, normas y fallos.
+
+**El piso quedó en 0,20, y separar el tema del resto es trabajo del clasificador.** Una consulta
+en tema de una o dos palabras puntúa bajo —«ley 48», 0,25; «Strada», 0,30; «per saltum»,
+0,34— y las no jurídicas empiezan en 0,18 y llegan a 0,41 («qué tiempo va a hacer mañana en
+Buenos Aires»). Con el cuadernillo el umbral estaba en 0,40, y sobre este índice rechazaría «per
+saltum».
+
+Una consulta fuera de tema ya falla cerrada sin este control —cero citas, el verificador
+rechaza, tres reintentos—; lo que la admisión evita es pagar cuarenta segundos para llegar ahí.
 
 ### De uso
 
@@ -520,8 +593,8 @@ que los endpoints exponen. Un arreglo en el código de extracción no mueve ese 
 para que llegue al índice hay que borrar la caché de texto de los documentos afectados.
 
 ```bash
-python -m scripts.construir_indice                        # los 124 documentos
-python -m scripts.construir_indice --solo nota-224        # unos pocos
+python -m scripts.construir_indice                        # lo que el catálogo marca para indexar
+python -m scripts.construir_indice --solo suplemento-3    # unos pocos
 python -m scripts.construir_indice --etapa segmentar      # hasta una etapa, sin claves
 python -m scripts.verificar_indice                        # antes de publicarlo
 python -m scripts.empaquetar_indice                       # el artefacto y sus variables
@@ -544,7 +617,7 @@ corridas viven en memoria del proceso.
 pytest
 ```
 
-437 tests. Corren sin red, sin claves y sin servicios: un fixture autouse parchea
+528 tests. Corren sin red, sin claves y sin servicios: un fixture autouse parchea
 `socket.socket.connect` y convierte cualquier salida a la red en un fallo del test. El PDF de
 `test_pdf.py` se construye en memoria con PyMuPDF, así que no hay binario versionado que nadie
 sepa reproducir.
@@ -650,6 +723,30 @@ copiarlo a mano da un respaldo al que le puede faltar justo lo que se quería gu
 
 ## Lo medido
 
+Sobre el «Recurso Extraordinario»:
+
+| | |
+|---|---|
+| Títulos del índice impreso ubicados en el cuerpo | 500 de 500 |
+| Fragmentos dentro de su sección y con su página | 1.268 de 1.268 |
+| Citas del texto que llegan a un fragmento | 2.402 de 2.404 |
+| La subsección que responde entra al top-6 | 27 de 28 consultas de los siete capítulos; 19 de 20 del capítulo de sentencias arbitrarias |
+| Admisión, 30 consultas en tema y 30 fuera | 30 de 30 admitidas y 30 de 30 rechazadas |
+| Links de la forma nueva (`buscarSumariosFallo`) que abren el fallo de su cita | 5 de 5 |
+| Publicadas, 20 consultas de los siete capítulos corridas de punta a punta | 20 de 20 |
+| Latencia mediana de una consulta | 19 s, entre 13 y 33 |
+| Costo mediano por consulta | USD 0,0027 (`gpt-4o-mini`) |
+| Correcciones en las 20 | 6; eran 11 antes de dejar de pedir que se reescriban las citas por expediente |
+| Citas publicadas con su pasaje a la vista | 52 de 63, ninguna con un pasaje de otro fallo |
+
+Una cita sale sin pasaje a la vista cuando el investigador tomó la oración de un fragmento que
+no cita ese fallo: la cita se publica con su afirmación y su link, y el pasaje no se muestra,
+que es la regla. Repetida para rastrearlo, la consulta con más casos —la de la acordada
+4/2007— trajo 4 de sus 5 pasajes de fragmentos que no citan ningún fallo de Fallos: el texto de
+la acordada, o sumarios citados solo por expediente. La proporción varía de una corrida a otra:
+la misma consulta sobre el exceso ritual manifiesto mostró 4 pasajes de 5 en una y 2 de 4 en la
+siguiente.
+
 Sobre el cuadernillo, con 20 consultas de arbitrariedad corridas de punta a punta contra el grafo:
 
 | | |
@@ -679,8 +776,16 @@ Medido con el corpus de 128 documentos, antes de que quedara solo el cuadernillo
   fallo, leído entero, sostenga la afirmación lo comprueba quien lee.
 - El control alcanza a las citas con números. Una referencia como "la doctrina de Colalillo"
   queda afuera; el prompt del redactor la prohíbe.
-- Las referencias por expediente y fecha (`C. 623. XLV. "Compañía Financiera", 10/12/2013`),
-  ~10% de los links de algunos suplementos, quedan fuera del padrón, que es de tomo y página.
+- Las referencias por expediente (`A. 1430. XLIII. REX`, `CSJ 002944/2025/RH001`) quedan fuera
+  del padrón, que es de tomo y página. En el «Recurso Extraordinario» son 1.586 de los 5.357
+  links del cuerpo, contando los que llevan a una disidencia, y entre ellas están los fallos
+  más recientes, que todavía no salieron en Fallos. El buscador los lee y no los puede citar.
+  El investigador tiene la regla escrita, y cuando igual propone una, el verificador le dice
+  que no es citable. Antes le pedía que la escribiera «en la forma Fallos: tomo:pagina», y eso
+  lo mandaba a inventarle un tomo y una página —«E. 287:XLVIII»—: en tres consultas medidas,
+  las tres correcciones se gastaron así. Con el mensaje nuevo, las correcciones en 20
+  consultas bajaron de 11 a 6, y la consulta sobre el salto de instancia, que terminaba sin
+  base, se publica.
 - Los embeddings son de OpenAI aun cuando el chat corra con Anthropic: Anthropic no ofrece una
   API de embeddings.
 - Las respuestas son un punto de partida para leer los fallos originales.

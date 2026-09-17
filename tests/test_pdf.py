@@ -167,6 +167,24 @@ class TestNormalizacion:
         assert c.citas_del_texto(pdf.normalizar("Fallos: \n332:111")) == {"332:111"}
 
 
+class TestFechaDeActualizacion:
+    """La fecha de corte que el documento declara en su tapa."""
+
+    def test_sale_de_la_tapa(self):
+        datos = armar_pdf([{"lineas": ["Recurso Extraordinario", "Actualizado al 10/09/2026"]},
+                           {"lineas": ["Indice"]}])
+        documento = pdf.extraer(datos, "suplemento-3", "Recurso Extraordinario")
+        assert pdf.fecha_de_actualizacion([p.texto for p in documento.paginas]) == "10/09/2026"
+
+    def test_un_documento_que_no_la_declara_queda_sin_fecha(self):
+        assert pdf.fecha_de_actualizacion(["Derecho a la Salud", "Contenido"]) == ""
+
+    def test_una_fecha_en_el_cuerpo_no_es_la_de_la_edicion(self):
+        # Una sentencia citada en la página 40 puede decir "actualizado al" sin ser la tapa.
+        paginas = ["Tapa", "Indice", "Cuerpo"] + ["Actualizado al 01/01/2020"]
+        assert pdf.fecha_de_actualizacion(paginas) == ""
+
+
 class TestCromo:
     """El encabezado que se repite en todas las páginas es imprenta, no doctrina."""
 

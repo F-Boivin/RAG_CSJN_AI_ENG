@@ -10,8 +10,11 @@ que decide si los vectores son comparables.
 """
 
 import json
+import uuid
 
 import pytest
+from langchain_chroma import Chroma
+from langchain_core.embeddings.fake import DeterministicFakeEmbedding
 
 import app.nucleo.constantes as cfg
 from app.nucleo.errores import ErrorRAG
@@ -141,3 +144,50 @@ class TestConstruccion:
         mod.abrir_chroma(tmp_path / "chroma", escritura=True)
         assert capturar["dimensiones"] == 1536
         assert capturar["coleccion"] == "en_construccion"
+
+
+class TestEncabezadoEnElVector:
+    """El vector lleva la cadena de títulos; el texto guardado, no.
+
+    El texto guardado es el que lee el investigador y contra el que el verificador busca cada
+    pasaje, y el lado léxico lo devuelve igual: si el vectorial devolviera otro texto, el
+    ensamble no reconocería que los dos encontraron el mismo fragmento.
+    """
+
+    ENCABEZADO = "Sentencias arbitrarias › Causales de arbitrariedad › Excesos"
+    TEXTO = "Es arbitraria la sentencia que se pronuncia sobre lo que ninguna parte pidio."
+
+    def construir(self, tmp_path, monkeypatch, encabezado):
+        embebidos = []
+
+        class Grabador(DeterministicFakeEmbedding):
+            def embed_documents(self, textos):
+                embebidos.extend(textos)
+                return super().embed_documents(textos)
+
+        chroma = Chroma(collection_name=f"constructor-{uuid.uuid4().hex}",
+                        embedding_function=Grabador(size=16))
+        monkeypatch.setattr(mod, "abrir_chroma", lambda *a, **k: chroma)
+        fragmento = {"id": "suplemento-3#0000", "origen": "suplemento-3",
+                     "seccion": "6 Sentencias arbitrarias", "subseccion": "6.2.6.2 Excesos",
+                     "encabezado": encabezado, "fuente": "suplemento", "pagina": 540,
+                     "texto": self.TEXTO, "tokens": 20, "citas_urls": {}}
+        with mod.Constructor(tmp_path / "indice") as constructor:
+            constructor.indexar_documento([fragmento], {"origen": "suplemento-3",
+                                                        "tipo": "suplemento", "titulo": "RE"})
+        guardado = chroma.get(ids=["suplemento-3#0000"], include=["documents", "metadatas"])
+        return embebidos, guardado
+
+    def test_el_vector_se_calcula_con_los_titulos_delante(self, tmp_path, monkeypatch):
+        embebidos, _ = self.construir(tmp_path, monkeypatch, self.ENCABEZADO)
+        assert embebidos == [f"{self.ENCABEZADO}\n\n{self.TEXTO}"]
+
+    def test_lo_que_se_guarda_es_el_texto_solo(self, tmp_path, monkeypatch):
+        _, guardado = self.construir(tmp_path, monkeypatch, self.ENCABEZADO)
+        assert guardado["documents"] == [self.TEXTO]
+        assert guardado["metadatas"][0]["subseccion"] == "6.2.6.2 Excesos"
+
+    def test_sin_encabezado_se_embebe_el_texto_tal_cual(self, tmp_path, monkeypatch):
+        embebidos, guardado = self.construir(tmp_path, monkeypatch, "")
+        assert embebidos == [self.TEXTO]
+        assert guardado["documents"] == [self.TEXTO]

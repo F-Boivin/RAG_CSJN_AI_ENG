@@ -37,7 +37,7 @@ from app.nucleo.errores import ErrorDeAlmacenamiento
 from app.observabilidad.trazas import span_de_recuperacion
 from app.rag import citas as c
 from app.rag.hibrido import crear_hibrido
-from app.rag.ingesta.markdown import contar_tokens
+from app.rag.ingesta.tokens import contar_tokens
 
 NL = chr(10)
 
@@ -192,13 +192,14 @@ def crear_buscar_doctrina(lectura: "Lectura"):
         """Busca doctrina y jurisprudencia de la CSJN en el corpus indexado.
 
         Usá esta herramienta cuando el usuario pregunte por la doctrina de la Corte Suprema
-        sobre sentencias arbitrarias: el corpus es el cuadernillo de la Secretaría de
-        Jurisprudencia sobre la arbitrariedad —su concepto, sus causales, la improcedencia
-        del recurso y su trámite—. Devuelve fragmentos con su subsección entre
-        corchetes y, debajo de cada uno, los fallos que ese fragmento cita. Busca por
-        significado y por palabra exacta a la vez, así que sirve tanto para un tema como
-        para un número de fallo escrito literal. No sirve para otras ramas del derecho ni
-        para hechos actuales.
+        sobre el recurso extraordinario federal: el corpus es «Recurso Extraordinario», la
+        obra de la Secretaría de Jurisprudencia que la reúne —interposición, trámite, cuestión
+        federal, sentencia definitiva, superior tribunal de la causa, sentencias arbitrarias
+        y recurso de queja—. Devuelve fragmentos con su subsección entre corchetes y, debajo
+        de cada uno, los fallos que ese fragmento cita. Busca por significado y por palabra
+        exacta a la vez, así que sirve tanto para un tema como para un número de fallo
+        escrito literal. No sirve para el fondo de otras ramas del derecho ni para hechos
+        actuales.
 
         **Solo podés citar fallos que aparezcan en estos resultados.** Si el fallo que
         necesitás no está, buscá otra vez con otros términos: no hay ninguna otra
