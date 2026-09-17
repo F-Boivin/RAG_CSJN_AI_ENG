@@ -4,6 +4,8 @@ Buscador público sobre la doctrina de la Corte Suprema de Justicia de la Nació
 sentencias arbitrarias. Cualquiera entra, pregunta en lenguaje natural, y recibe una respuesta
 con citas de fallos reales y sus links oficiales.
 
+**En línea:** [rag-csjn.up.railway.app](https://rag-csjn.up.railway.app)
+
 ---
 
 ## Qué hace
