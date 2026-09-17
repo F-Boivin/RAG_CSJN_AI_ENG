@@ -468,6 +468,49 @@ saltum».
 Una consulta fuera de tema ya falla cerrada sin este control —cero citas, el verificador
 rechaza, tres reintentos—; lo que la admisión evita es pagar cuarenta segundos para llegar ahí.
 
+### De citas: los fallos que la obra cita por expediente
+
+**El padrón es de tomo y página**, y eso deja afuera a una parte del corpus. La Corte identifica
+sus sentencias de dos maneras, y la obra usa las dos:
+
+- por su publicación en la colección Fallos —«Fallos: 340:403»—, que es tomo y página;
+- por el número de expediente, con la forma vieja —`A. 1430. XLIII. REX`— o la nueva
+  —`CSJ 002944/2025/RH001`, `FTU 023105/2015/4/1/1/RH005`—.
+
+Medido sobre los 5.357 hipervínculos del cuerpo: 3.771 están anclados a una cita de Fallos, 769
+a un expediente de la forma vieja y 817 al resto, entre expedientes nuevos y links a una
+disidencia. **Son 1.586, el 30%**, y entre ellos están los fallos más recientes, los que todavía
+no salieron publicados.
+
+Todo el control de citas trabaja sobre `tomo:pagina`: el padrón, `normalizar_cita`, la
+comprobación de existencia, la herramienta que devuelve el link oficial y la ficha que ve el
+lector. Un expediente no tiene tomo ni página, y su link va por `idDocumento`, así que no hay
+clave con la que comprobarlo contra nada. **El buscador los lee y no los puede citar.**
+
+Eso cuesta tres cosas, y las tres están medidas:
+
+1. **Secciones con poca doctrina citable.** En «5.6 Recurso extraordinario por salto de
+   instancia» la obra cita 10 fallos por Fallos y 15 por expediente, y la búsqueda trae, entre
+   sus seis fragmentos, dos fallos citables: el mínimo exacto que la redacción pide. En una de
+   las dos corridas de punta a punta esa consulta terminó sin base suficiente.
+2. **Fragmentos que no sostienen ninguna cita.** 120 de los 1.268 fragmentos no traen ningún
+   fallo de Fallos; en el capítulo de interposición son 63 de 174, porque ahí está el texto de
+   la acordada 4/2007. Un pasaje copiado de uno de esos fragmentos no se puede mostrar debajo de
+   ninguna cita: la ficha sale con su afirmación y su link, y sin el pasaje a la vista.
+3. **Correcciones gastadas.** El investigador lee los expedientes en los fragmentos y los
+   propone como citas. El verificador los rechazaba con dos mensajes, y uno pedía escribirlos
+   «en la forma Fallos: tomo:pagina»: eso lo mandaba a inventarles un tomo y una página,
+   `E. 287:XLVIII`. Medido en tres consultas, las tres gastaron sus tres correcciones así. Ahora
+   el prompt del investigador dice que esas referencias no se citan, y el verificador contesta
+   que no son citables en vez de pedir que las reescriba: sobre 20 consultas, las correcciones
+   bajaron de 11 a 6 y la del salto de instancia pasó a publicar.
+
+**Sumarlas es un paso aparte, no una bandera.** Habría que darle al padrón una segunda forma de
+clave —tres formatos de expediente, más los links a disidencias—, enseñársela a
+`citas_del_texto`, que hoy se ancla en la palabra «fallos» seguida de un `tomo:pagina`, y decidir
+qué muestra la ficha y qué escribe el redactor cuando la cita no tiene tomo ni página. El trabajo
+cae entero sobre el control de citas, que es la promesa central del buscador.
+
 ### De uso
 
 | contador | tope | ventana |
@@ -490,7 +533,7 @@ pasar. Medido con cinco pedidos simultáneos contra un tope de dos: pasa el que 
 otros reciben 429.
 
 **Ninguna espera es infinita.** Cada llamada al proveedor tiene 60 segundos y la corrida
-entera 180; los dos números salen de lo medido —una consulta publicada tarda entre 18 y 33 s—
+entera 180; los dos números salen de lo medido —una consulta publicada tarda entre 13 y 33 s—
 con holgura grande, porque lo que tienen que cortar es lo que se colgó y no lo que tarda. Sin
 ellos, el SDK espera diez minutos por llamada y la corrida no termina nunca: tres colgadas
 tapaban el semáforo media hora larga, con la cola detrás y el cupo de cada uno ya cobrado. El
@@ -793,6 +836,36 @@ Medido con el corpus de 128 documentos, antes de que quedara solo el cuadernillo
   repite en cada corrección no llega nunca a la respuesta, y tampoco impide publicarla: el
   sistema escribe sobre las citas que sí verificaron. Lo que no se comprueba es que el fallo
   citado **sostenga** la afirmación que lo invoca; eso lo comprueba quien lee.
+
+## Lo que queda pendiente
+
+Tres cosas fuera de lo hecho, y una lista de hallazgos abiertos.
+
+- **Los fallos citados por expediente**, el 30% de los links de la obra: lo que costaría
+  sumarlos está arriba, en «De citas».
+- **La configuración de Railway** vive en `railway.json`. La plataforma declaró deprecado ese
+  formato en favor de `.railway/railway.ts` y avisa que los archivos existentes funcionan hasta
+  el 2026-12-01; migrarlo es correr `railway config migrate`.
+- **La página de privacidad** no dice quién responde por el registro ni a qué dirección se
+  ejercen los derechos de acceso, rectificación y supresión de la ley 25.326. Falta decidir qué
+  contacto publicar.
+
+Y los hallazgos de una auditoría del código, pausados cuando el corpus cambió. Están
+**comprobados contra el código de hoy**, uno por uno:
+
+| Dónde | Qué pasa |
+|---|---|
+| [`main.py:116`](app/api/main.py#L116) | El SQLite de estado se abre fuera de todo `try`: un volumen que no se pueda escribir mata el proceso en bucle, mientras que el índice, que sí tiene su red, ni llega a intentarse. |
+| [`main.py:123`](app/api/main.py#L123) | Los hashes de cupo se podan una sola vez, al arrancar. Un proceso que vive semanas los guarda mucho más que las 48 horas que promete la página de privacidad. |
+| [`main.py:153`](app/api/main.py#L153) | El handler de `ErrorDeAlmacenamiento` devuelve el mensaje crudo de SQLite en un 503 público. |
+| [`main.py:104`](app/api/main.py#L104) | El sondeo de LangSmith corre durante el arranque, antes de que el puerto se abra. |
+| [`main.py:316`](app/api/main.py#L316) | Una corrida que falla por infraestructura ya cobró el cupo del visitante, y no hay forma de devolverlo. |
+| [`motor.py:156`](app/servicio/motor.py#L156) | Cuando una corrida falla, al visitante le llega por SSE el mensaje crudo del proveedor, con su tipo de excepción adelante. |
+| [`motor.py:278`](app/servicio/motor.py#L278) | Una corrida fallida queda en el registro, y no aparece ni en el log del servicio ni en `/metricas`, que solo cuenta publicadas, sin base y fuera de alcance. |
+| [`motor.py:306`](app/servicio/motor.py#L306) | El motor escribe en SQLite desde el event loop —`sumar_gasto` y `registro.cerrar`—, contra el invariante que `almacen/estado.py` declara para sus propias escrituras. |
+| [`motor.py:306`](app/servicio/motor.py#L306) | El gasto se suma recién cuando la corrida termina, así que el corte por presupuesto no ve lo que gastan las corridas en vuelo. |
+| [`estado.py:246`](app/almacen/estado.py#L246) | `/metricas` publica el promedio de latencia, y «Acerca de» lo muestra como mediana. |
+| [`artefacto.py:73`](app/rag/ingesta/artefacto.py#L73) | El índice viejo se borra antes de que el nuevo esté en su lugar, y el reemplazo es un `shutil.move` entre sistemas de archivos: si falla a mitad, el volumen queda sin índice. |
 
 ## Licencia
 
